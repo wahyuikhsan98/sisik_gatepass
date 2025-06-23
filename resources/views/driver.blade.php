@@ -274,7 +274,7 @@
                                         </select>
                                         <span class="input-group-text">WIB</span>
                                     </div>
-                                    <small class="text-muted">Pilih jam kembali kendaraan (format 24 jam, maksimal 1 jam dari jam keluar).</small>
+                                    <small class="text-muted">Pilih jam kembali kendaraan (format 24 jam, maksimal 90 menit dari jam keluar).</small>
                                     <div id="selisih_waktu" class="text-muted small mt-1"></div>
                                     @error('jam_in')
                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -355,8 +355,8 @@
                     return false;
                 }
                 
-                if (selisih > 60) {
-                    selisihWaktu.innerHTML = '<span class="text-danger">Selisih waktu tidak boleh lebih dari 1 jam!</span>';
+                if (selisih > 90) {
+                    selisihWaktu.innerHTML = '<span class="text-danger">Selisih waktu tidak boleh lebih dari 90 menit!</span>';
                     jamInHour.value = '';
                     jamInMinute.value = '';
                     return false;
@@ -372,7 +372,7 @@
 
                 const outHour = parseInt(jamOutHour.value);
                 const outMinute = parseInt(jamOutMinute.value);
-                const maxHour = outHour + 1;
+                const maxMinute = outHour * 60 + outMinute + 90;
 
                 // Reset jam masuk
                 jamInHour.value = '';
@@ -382,11 +382,20 @@
                 Array.from(jamInHour.options).forEach(option => {
                     if (option.value) {
                         const hour = parseInt(option.value);
-                        option.disabled = hour < outHour || hour > maxHour;
+                        // Hitung menit absolut untuk jam_in
+                        let valid = false;
+                        for (let m = 0; m < 60; m += 5) {
+                            const totalMinute = hour * 60 + m;
+                            if (totalMinute > (outHour * 60 + outMinute) && totalMinute <= maxMinute) {
+                                valid = true;
+                                break;
+                            }
+                        }
+                        option.disabled = !valid;
                     }
                 });
 
-                // Jika jam sama, nonaktifkan menit yang lebih kecil
+                // Jika jam sama, nonaktifkan menit yang lebih kecil atau sama
                 if (jamInHour.value === jamOutHour.value) {
                     Array.from(jamInMinute.options).forEach(option => {
                         if (option.value) {

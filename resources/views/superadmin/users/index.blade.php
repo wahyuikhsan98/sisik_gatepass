@@ -85,7 +85,9 @@
                                                             data-id="{{ $user->id }}"
                                                             data-name="{{ $user->name }}"
                                                             data-departemen="{{ $user->departemen_id }}"
-                                                            data-role="{{ $user->role_id }}">
+                                                            data-role="{{ $user->role_id }}"
+                                                            data-phone="{{ $user->phone }}"
+                                                            data-address="{{ $user->address }}">
                                                             <i class="fas fa-edit"></i> Edit
                                                         </button>
                                                         <button type="button" class="btn btn-sm btn-info" data-toggle="modal" data-target="#modalEmail"
@@ -217,6 +219,14 @@
                                     <option value="{{ $role->id }}">{{ $role->title }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_phone">No. Telepon</label>
+                            <input type="text" class="form-control" id="edit_phone" name="phone" maxlength="20">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_address">Alamat</label>
+                            <input type="text" class="form-control" id="edit_address" name="address" maxlength="255">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -518,12 +528,16 @@
                 var name = button.data('name');
                 var departemen = button.data('departemen');
                 var role = button.data('role');
+                var phone = button.data('phone') || '';
+                var address = button.data('address') || '';
                 
                 var modal = $(this);
                 modal.find('#edit_id').val(id);
                 modal.find('#edit_name').val(name);
                 modal.find('#edit_departemen_id').val(departemen);
                 modal.find('#edit_role_id').val(role);
+                modal.find('#edit_phone').val(phone);
+                modal.find('#edit_address').val(address);
                 modal.find('#formEdit').attr('action', `/users/update-basic-info/${id}`);
             });
 
@@ -607,78 +621,20 @@
                 $(this).find('.is-invalid').removeClass('is-invalid');
                 $(this).find('.invalid-feedback').remove();
             });
-
-            // Buka modal jika ada error
-            @if(session('modal') == 'edit')
-                $('#modalEdit').modal('show');
-            @endif
-
-            @if(session('modal') == 'email')
-                $('#modalEmail').modal('show');
-            @endif
-
-            @if(session('modal') == 'password')
-                $('#modalPassword').modal('show');
-            @endif
-
-            @if(session('modal') == 'photo')
-                $('#modalPhoto').modal('show');
-            @endif
-
-            // Reset Password Default
-            $('.reset-password-default').click(function() {
-                const button = $(this);
-                const id = button.data('id');
-                const name = button.data('name');
-                
-                Swal.fire({
-                    title: 'Reset Password Default?',
-                    text: `Password untuk ${name} akan direset menjadi "password"`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Reset!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Disable button
-                        button.prop('disabled', true);
-                        
-                        $.ajax({
-                            url: `/users/${id}/reset-password-default`,
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            success: function(response) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Berhasil!',
-                                    text: response.message,
-                                    showConfirmButton: false,
-                                    timer: 1500
-                                });
-                            },
-                            error: function(xhr) {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Gagal!',
-                                    text: xhr.responseJSON?.message || 'Terjadi kesalahan saat mereset password',
-                                    showConfirmButton: false,
-                                    timer: 1500
-                                });
-                            },
-                            complete: function() {
-                                // Re-enable button
-                                button.prop('disabled', false);
-                            }
-                        });
-                    }
-                });
-            });
         });
     </script>
+    @if(session('modal') == 'edit')
+        <script>window.onload = function() { $('#modalEdit').modal('show'); };</script>
+    @endif
+    @if(session('modal') == 'email')
+        <script>window.onload = function() { $('#modalEmail').modal('show'); };</script>
+    @endif
+    @if(session('modal') == 'password')
+        <script>window.onload = function() { $('#modalPassword').modal('show'); };</script>
+    @endif
+    @if(session('modal') == 'photo')
+        <script>window.onload = function() { $('#modalPhoto').modal('show'); };</script>
+    @endif
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

@@ -310,6 +310,9 @@ class RequestKaryawanController extends Controller
                 ]);
             }
 
+            // Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
+            $this->sendWhatsAppToDepartemenAndHRGA($validated['departemen_id'], $karyawanMessage);
+
             // Pesan sukses
             $successMessage = "Pengajuan izin karyawan berhasil dikirim.\n" .
                             "Nama: " . $validated['nama'] . "\n" .
@@ -408,6 +411,15 @@ class RequestKaryawanController extends Controller
             // Simpan perubahan
             $requestKaryawan->save();
 
+            // Format pesan untuk approval
+            $karyawanMessage = "🔔 *Persetujuan Permohonan Izin Keluar Karyawan*\n\n" .
+                "Nama: {$requestKaryawan->nama}\n" .
+                "Departemen: {$requestKaryawan->departemen->name}\n" .
+                "Keperluan: {$requestKaryawan->keperluan}\n" .
+                "Jam Keluar: {$requestKaryawan->jam_out}\n" .
+                "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
+                "Status: Permohonan telah diproses";
+
             // Buat notifikasi untuk setiap user yang ditemukan
             foreach($users as $user) {
                 Notification::create([
@@ -421,6 +433,9 @@ class RequestKaryawanController extends Controller
                     'is_read' => false
                 ]);
             }
+
+            // Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
+            $this->sendWhatsAppToDepartemenAndHRGA($requestKaryawan->departemen_id, $karyawanMessage);
 
             return response()->json([
                 'success' => true,
@@ -470,6 +485,18 @@ class RequestKaryawanController extends Controller
 
             $requestKaryawan->save();
 
+            // Format pesan untuk update status
+            $karyawanMessage = "🔔 *Update Status Permohonan Izin Keluar Karyawan*\n\n" .
+                "Nama: {$requestKaryawan->nama}\n" .
+                "Departemen: {$requestKaryawan->departemen->name}\n" .
+                "Keperluan: {$requestKaryawan->keperluan}\n" .
+                "Jam Keluar: {$requestKaryawan->jam_out}\n" .
+                "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
+                "Status: Status permohonan telah diperbarui";
+
+            // Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
+            $this->sendWhatsAppToDepartemenAndHRGA($requestKaryawan->departemen_id, $karyawanMessage);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Status permohonan berhasil diperbarui.'
@@ -518,6 +545,15 @@ class RequestKaryawanController extends Controller
             // Update data
             $requestKaryawan->update($validated);
 
+            // Format pesan untuk update
+            $karyawanMessage = "🔔 *Update Data Permohonan Izin Keluar Karyawan*\n\n" .
+                "Nama: {$requestKaryawan->nama}\n" .
+                "Departemen: {$requestKaryawan->departemen->name}\n" .
+                "Keperluan: {$requestKaryawan->keperluan}\n" .
+                "Jam Keluar: {$requestKaryawan->jam_out}\n" .
+                "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
+                "Status: Data telah diperbarui";
+
             // Buat notifikasi
             $users = \App\Models\User::whereHas('role', function($query) {
                 $query->whereIn('slug', ['admin', 'lead', 'hr-ga', 'security']);
@@ -535,6 +571,9 @@ class RequestKaryawanController extends Controller
                     'is_read' => false
                 ]);
             }
+
+            // Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
+            $this->sendWhatsAppToDepartemenAndHRGA($requestKaryawan->departemen_id, $karyawanMessage);
 
             return response()->json([
                 'success' => true,
@@ -931,5 +970,32 @@ class RequestKaryawanController extends Controller
         // Bersihkan karakter "/" dan "\" dari no_surat
         $cleanNoSurat = str_replace(['/', '\\'], '-', $requestKaryawan->no_surat);
         return $pdf->stream('surat_izin_karyawan_' . $cleanNoSurat . '.pdf');
+    }
+
+    /**
+     * Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
+     */
+    private function sendWhatsAppToDepartemenAndHRGA($departemenId, $message)
+    {
+        // Kirim ke semua user di departemen terkait
+        $usersDepartemen = \App\Models\User::where('departemen_id', $departemenId)->get();
+        foreach ($usersDepartemen as $user) {
+            if ($user->phone) {
+                try {
+                    $this->whatsappService->sendMessage($user->phone, $message);
+                } catch (\Exception $e) {}
+            }
+        }
+        // Kirim ke semua user HR-GA
+        $usersHRGA = \App\Models\User::whereHas('role', function($q) {
+            $q->where('slug', 'hr-ga');
+        })->get();
+        foreach ($usersHRGA as $user) {
+            if ($user->phone) {
+                try {
+                    $this->whatsappService->sendMessage($user->phone, $message);
+                } catch (\Exception $e) {}
+            }
+        }
     }
 }

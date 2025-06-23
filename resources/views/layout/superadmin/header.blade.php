@@ -63,6 +63,7 @@
                                 <div class="notif-center">
                                     @php
                                         $notifications = \App\Models\Notification::where('user_id', auth()->id())
+                                            ->where('is_read', false)
                                             ->orderBy('created_at', 'desc')
                                             ->take(5)
                                             ->get();
