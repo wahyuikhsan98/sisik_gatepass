@@ -408,7 +408,7 @@
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="font-weight-bold">Admin:</label>
+                                <label class="font-weight-bold">Admin/Checker:</label>
                                 <div id="admin-actions" class="d-flex flex-wrap mb-2">
                                     <span class="status-action btn btn-success btn-sm mr-2 mb-1" data-role="admin" data-status="2">Setujui</span>
                                     <span class="status-action btn btn-danger btn-sm mr-2 mb-1" data-role="admin" data-status="3">Tolak</span>

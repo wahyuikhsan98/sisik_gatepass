@@ -651,8 +651,8 @@
                 datasets: [{
                     data: totalStatusData,
                     backgroundColor: [
-                        'rgb(75, 192, 192)',
-                        'rgb(255, 99, 132)',
+                        'rgb(13, 218, 81)',
+                        'rgb(241, 41, 41)',
                         'rgb(255, 205, 86)'
                     ]
                 }]
