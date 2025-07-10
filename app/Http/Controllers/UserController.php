@@ -234,17 +234,16 @@ class UserController extends Controller
                 if ($request->hasFile('photo')) {
                     $photo = $request->file('photo');
                     $extension = $photo->getClientOriginalExtension();
-                    
-                    // Gunakan format name_time()
-                    $photoNameOnly = Str::slug($request->name) . '_' . time();
-                    $photoFullName = $photoNameOnly . '.' . $extension;
-                    $destinationPath = public_path('images/users');
                 
-                    // Pindahkan file
-                    $photo->move($destinationPath, $photoFullName);
+                    // Buat nama file dan path yang sesuai
+                    $photoName = Str::slug($request->name) . '_' . time() . '.' . $extension;
+                    $photoPath = 'images/users/' . $photoName;
+                
+                    // Simpan file fisik ke public/images/users
+                    $photo->move(public_path('images/users'), $photoName);
                 
                     // Simpan path ke database (relatif terhadap public)
-                    $user->photo = 'images/users/' . $photoFullName;
+                    $user->photo = $photoPath; // <--- ini disimpan ke database
                 }
 
 
@@ -333,9 +332,16 @@ class UserController extends Controller
                     
                     $photo = $request->file('photo');
                     $extension = $photo->getClientOriginalExtension();
-                    $photoName = 'images/users/' . Str::slug($request->name) . '_' . time() . '.' . $extension;
-                    $photo->move(public_path('images/users'), basename($photoName));
-                    $data['photo'] = $photoName;
+                
+                    // Buat nama file dan path yang sesuai
+                    $photoName = Str::slug($request->name) . '_' . time() . '.' . $extension;
+                    $photoPath = 'images/users/' . $photoName;
+                
+                    // Simpan file fisik ke public/images/users
+                    $photo->move(public_path('images/users'), $photoName);
+                
+                    // Simpan path ke database (relatif terhadap public)
+                    $user->photo = $photoPath; // <--- ini disimpan ke database
                 }
 
                 $user->update($data);
@@ -595,11 +601,16 @@ class UserController extends Controller
                 // Upload foto baru
                 $photo = $request->file('photo');
                 $extension = $photo->getClientOriginalExtension();
-                $photoName = 'images/users/' . Str::slug($user->name) . '_' . time() . '.' . $extension;
-                $photo->move(public_path('images/users'), basename($photoName));
-                
-                $user->photo = $photoName;
-                $user->save();
+            
+                // Buat nama file dan path yang sesuai
+                $photoName = Str::slug($request->name) . '_' . time() . '.' . $extension;
+                $photoPath = 'images/users/' . $photoName;
+            
+                // Simpan file fisik ke public/images/users
+                $photo->move(public_path('images/users'), $photoName);
+            
+                // Simpan path ke database (relatif terhadap public)
+                $user->photo = $photoPath; // <--- ini disimpan ke database
 
                 DB::commit();
                 return redirect()->back()->with('success', 'Foto profil berhasil diperbarui');
