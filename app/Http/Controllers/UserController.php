@@ -241,7 +241,7 @@ class UserController extends Controller
                     $slugName = 'user'; // fallback jika slug kosong
                 }
     
-                $photoName = $slugName . '_' . time() . '.' . $extension;
+                $photoName = 'user' . '_' . time() . '.' . $extension;
                 $destination = public_path('images/users');
     
                 // Pastikan folder tujuan ada
@@ -336,7 +336,7 @@ class UserController extends Controller
                     $slugName = 'user';
                 }
     
-                $photoName = $slugName . '_' . time() . '.' . $extension;
+                $photoName = 'user' . '_' . time() . '.' . $extension;
                 $photoPath = 'images/users/' . $photoName;
     
                 // Buat folder jika belum ada
@@ -603,7 +603,7 @@ class UserController extends Controller
                 $slugName = 'user';
             }
     
-            $photoName = $slugName . '_' . time() . '.' . $extension;
+            $photoName = 'user' . '_' . time() . '.' . $extension;
             $photoPath = 'images/users/' . $photoName;
     
             // Buat folder jika belum ada
