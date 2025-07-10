@@ -242,7 +242,12 @@ class UserController extends Controller
                 }
     
                 $photoName = time() . '.' . $extension;
-                $destination = public_path('images/users');
+                // Tentukan lokasi berdasarkan environment
+                if (app()->environment('local')) {
+                    $destination = public_path('images/users');
+                } else {
+                    $destination = base_path('../public_html/images/users');
+                }
     
                 // Pastikan folder tujuan ada
                 if (!file_exists($destination)) {
@@ -273,7 +278,6 @@ class UserController extends Controller
                 ->with('modal', 'add');
         }
     }
-
 
     /**
      * Memperbarui data user yang sudah ada
@@ -316,42 +320,50 @@ class UserController extends Controller
             // Cari user
             $user = User::findOrFail($id);
     
-            // Update properti
+            // Update data
             $user->name = $request->name;
             $user->departemen_id = $request->departemen_id;
             $user->role_id = $request->role_id;
     
-            // Cek dan upload foto baru
+            // Jika ada file foto diupload
             if ($request->hasFile('photo')) {
-                // Hapus foto lama
-                if ($user->photo && file_exists(public_path($user->photo))) {
-                    @unlink(public_path($user->photo));
+                // Hapus file lama
+                $oldPath = $user->photo;
+    
+                if ($oldPath) {
+                    $oldFullPath = app()->environment('local')
+                        ? public_path($oldPath)
+                        : base_path('../public_html/' . $oldPath);
+    
+                    if (file_exists($oldFullPath)) {
+                        @unlink($oldFullPath);
+                    }
                 }
     
+                // Foto baru
                 $photo = $request->file('photo');
                 $extension = $photo->getClientOriginalExtension();
-    
-                $slugName = Str::slug($request->name);
-                if (empty($slugName)) {
-                    $slugName = 'user';
-                }
-    
+                $slugName = Str::slug($request->name) ?: 'user';
                 $photoName = time() . '.' . $extension;
                 $photoPath = 'images/users/' . $photoName;
     
+                // Tentukan destinasi simpan
+                $destination = app()->environment('local')
+                    ? public_path('images/users')
+                    : base_path('../public_html/images/users');
+    
                 // Buat folder jika belum ada
-                if (!file_exists(public_path('images/users'))) {
-                    mkdir(public_path('images/users'), 0755, true);
+                if (!file_exists($destination)) {
+                    mkdir($destination, 0755, true);
                 }
     
-                // Pindahkan file
-                $photo->move(public_path('images/users'), $photoName);
+                // Simpan file
+                $photo->move($destination, $photoName);
     
-                // Simpan path
+                // Simpan path ke DB
                 $user->photo = $photoPath;
             }
     
-            // Simpan
             $user->save();
     
             DB::commit();
@@ -371,7 +383,6 @@ class UserController extends Controller
                 ->with('edit_id', $id);
         }
     }
-
 
     /**
      * Menghapus user dari database
@@ -590,33 +601,40 @@ class UserController extends Controller
             $user = User::findOrFail($id);
     
             // Hapus foto lama jika ada
-            if ($user->photo && file_exists(public_path($user->photo))) {
-                @unlink(public_path($user->photo));
+            if ($user->photo) {
+                $oldPath = app()->environment('local')
+                    ? public_path($user->photo)
+                    : base_path('../public_html/' . $user->photo);
+    
+                if (file_exists($oldPath)) {
+                    @unlink($oldPath);
+                }
             }
     
             $photo = $request->file('photo');
             $extension = $photo->getClientOriginalExtension();
     
-            // Gunakan nama user yang sudah ada di DB
-            $slugName = Str::slug($user->name);
-            if (empty($slugName)) {
-                $slugName = 'user';
-            }
-    
+            // Gunakan slug dari nama user
+            $slugName = Str::slug($user->name) ?: 'user';
             $photoName = time() . '.' . $extension;
             $photoPath = 'images/users/' . $photoName;
     
+            // Tentukan lokasi penyimpanan tergantung environment
+            $destination = app()->environment('local')
+                ? public_path('images/users')
+                : base_path('../public_html/images/users');
+    
             // Buat folder jika belum ada
-            if (!file_exists(public_path('images/users'))) {
-                mkdir(public_path('images/users'), 0755, true);
+            if (!file_exists($destination)) {
+                mkdir($destination, 0755, true);
             }
     
-            // Pindahkan file
-            $photo->move(public_path('images/users'), $photoName);
+            // Simpan file
+            $photo->move($destination, $photoName);
     
             // Simpan path ke database
             $user->photo = $photoPath;
-            $user->save(); // <- penting, tadi tidak ada!
+            $user->save();
     
             DB::commit();
             return redirect()->back()->with('success', 'Foto profil berhasil diperbarui');
@@ -635,7 +653,6 @@ class UserController extends Controller
                 ->with('edit_id', $id);
         }
     }
-
 
     /**
      * Memperbarui informasi dasar user (nama, role, departemen, phone, address)
