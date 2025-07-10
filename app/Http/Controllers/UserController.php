@@ -234,10 +234,19 @@ class UserController extends Controller
                 if ($request->hasFile('photo')) {
                     $photo = $request->file('photo');
                     $extension = $photo->getClientOriginalExtension();
-                    $photoName = 'images/users/' . Str::slug($request->name) . '_' . time() . '.' . $extension;
-                    $photo->move(public_path('images/users'), basename($photoName));
-                    $user->photo = $photoName;
+                    
+                    // Gunakan format name_time()
+                    $photoNameOnly = Str::slug($request->name) . '_' . time();
+                    $photoFullName = $photoNameOnly . '.' . $extension;
+                    $destinationPath = public_path('images/users');
+                
+                    // Pindahkan file
+                    $photo->move($destinationPath, $photoFullName);
+                
+                    // Simpan path ke database (relatif terhadap public)
+                    $user->photo = 'images/users/' . $photoFullName;
                 }
+
 
                 $user->save();
 
