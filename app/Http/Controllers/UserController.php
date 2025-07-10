@@ -230,33 +230,23 @@ class UserController extends Controller
             $user->role_id = $request->role_id;
             $user->is_active = 1;
     
-            // Upload foto jika ada
+            // Upload foto jika ada 
             if ($request->hasFile('photo')) {
                 $photo = $request->file('photo');
-                $extension = $photo->getClientOriginalExtension();
-    
-                // Nama file: slug_nama_timestamp.ext
-                $slugName = Str::slug($request->name);
-                if (empty($slugName)) {
-                    $slugName = 'user'; // fallback jika slug kosong
-                }
-    
                 $photoName = time() . '.' . $photo->getClientOriginalExtension();
-
+        
                 // Path absolut ke public_html/images/users
                 $destination = base_path('../public_html/images/users');
-                
-                // Buat folder jika belum ada
+        
                 if (!file_exists($destination)) {
                     mkdir($destination, 0755, true);
                 }
-                
-                // Simpan file ke public_html/images/users
+        
                 $photo->move($destination, $photoName);
-                
-                // Simpan path relatif untuk ditampilkan di web
+        
+                // Simpan path relatif di DB
                 $user->photo = 'images/users/' . $photoName;
-
+                $user->save();
             }
     
             $user->save();
@@ -325,37 +315,24 @@ class UserController extends Controller
     
             // Jika ada file foto diupload
             if ($request->hasFile('photo')) {
-                // Hapus file lama
-                $oldPath = $user->photo;
-    
-                if ($oldPath) {
-                    $oldFullPath = app()->environment('local')
-                        ? public_path($oldPath)
-                        : base_path('../public_html/' . $oldPath);
-    
-                    if (file_exists($oldFullPath)) {
-                        @unlink($oldFullPath);
+                // Hapus foto lama jika ada
+                if ($user->photo) {
+                    $oldPath = base_path('../public_html/' . $user->photo);
+                    if (file_exists($oldPath)) {
+                        @unlink($oldPath);
                     }
                 }
-    
-                // Foto baru
+        
                 $photo = $request->file('photo');
-                $extension = $photo->getClientOriginalExtension();
-                $slugName = Str::slug($request->name) ?: 'user';
                 $photoName = time() . '.' . $photo->getClientOriginalExtension();
-
-                // Path absolut ke public_html/images/users
+        
                 $destination = base_path('../public_html/images/users');
-                
-                // Buat folder jika belum ada
                 if (!file_exists($destination)) {
                     mkdir($destination, 0755, true);
                 }
-                
-                // Simpan file ke public_html/images/users
+        
                 $photo->move($destination, $photoName);
-                
-                // Simpan path relatif untuk ditampilkan di web
+        
                 $user->photo = 'images/users/' . $photoName;
             }
     
@@ -594,38 +571,27 @@ class UserController extends Controller
             DB::beginTransaction();
     
             $user = User::findOrFail($id);
-    
-            // Hapus foto lama jika ada
+
+            // Hapus foto lama
             if ($user->photo) {
-                $oldPath = app()->environment('local')
-                    ? public_path($user->photo)
-                    : base_path('../public_html/' . $user->photo);
-    
+                $oldPath = base_path('../public_html/' . $user->photo);
                 if (file_exists($oldPath)) {
                     @unlink($oldPath);
                 }
             }
-    
+        
             $photo = $request->file('photo');
-            $extension = $photo->getClientOriginalExtension();
-    
-            // Gunakan slug dari nama user
-            $slugName = Str::slug($user->name) ?: 'user';
             $photoName = time() . '.' . $photo->getClientOriginalExtension();
-
-            // Path absolut ke public_html/images/users
+        
             $destination = base_path('../public_html/images/users');
-            
-            // Buat folder jika belum ada
             if (!file_exists($destination)) {
                 mkdir($destination, 0755, true);
             }
-            
-            // Simpan file ke public_html/images/users
+        
             $photo->move($destination, $photoName);
-            
-            // Simpan path relatif untuk ditampilkan di web
+        
             $user->photo = 'images/users/' . $photoName;
+            $user->save();
 
             DB::commit();
             return redirect()->back()->with('success', 'Foto profil berhasil diperbarui');
