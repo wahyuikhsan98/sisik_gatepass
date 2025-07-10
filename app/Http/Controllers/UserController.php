@@ -196,7 +196,7 @@ class UserController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users',
                 'role_id' => 'required|exists:roles,id',
-                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             ], [
                 'departemen_id.required' => 'Departemen harus dipilih',
                 'departemen_id.exists' => 'Departemen tidak valid',
@@ -209,70 +209,71 @@ class UserController extends Controller
                 'role_id.exists' => 'Role tidak valid',
                 'photo.image' => 'File harus berupa gambar',
                 'photo.mimes' => 'Format gambar harus jpeg, png, jpg, atau gif',
-                'photo.max' => 'Ukuran gambar maksimal 2MB'
+                'photo.max' => 'Ukuran gambar maksimal 2MB',
             ]);
-
+    
             if ($validator->fails()) {
                 return redirect()->back()
                     ->withErrors($validator)
                     ->withInput()
                     ->with('modal', 'add');
             }
-
+    
             DB::beginTransaction();
-            try {
-                // Buat user baru
-                $user = new User();
-                $user->departemen_id = $request->departemen_id;
-                $user->name = $request->name;
-                $user->email = $request->email;
-                $user->password = Hash::make('password'); // Default password
-                $user->role_id = $request->role_id;
-                $user->is_active = 1;
-
-                // Upload foto jika ada
-                if ($request->hasFile('photo')) {
-                    $photo = $request->file('photo');
-                    $extension = $photo->getClientOriginalExtension();
-                
-                    // Buat nama file dan path yang sesuai
-                    $photoName = Str::slug($request->name) . '_' . time() . '.' . $extension;
-                    $photoPath = 'images/users/' . $photoName;
-                
-                    // Simpan file fisik ke public/images/users
-                    $photo->move(public_path('images/users'), $photoName);
-                
-                    // Simpan path ke database (relatif terhadap public)
-                    $user->photo = $photoPath; // <--- ini disimpan ke database
+    
+            // Buat user baru
+            $user = new User();
+            $user->departemen_id = $request->departemen_id;
+            $user->name = $request->name;
+            $user->email = $request->email;
+            $user->password = Hash::make('password'); // Password default
+            $user->role_id = $request->role_id;
+            $user->is_active = 1;
+    
+            // Upload foto jika ada
+            if ($request->hasFile('photo')) {
+                $photo = $request->file('photo');
+                $extension = $photo->getClientOriginalExtension();
+    
+                // Nama file: slug_nama_timestamp.ext
+                $slugName = Str::slug($request->name);
+                if (empty($slugName)) {
+                    $slugName = 'user'; // fallback jika slug kosong
                 }
-
-
-                $user->save();
-
-                DB::commit();
-                return redirect()->back()->with('success', 'Pengguna berhasil ditambahkan');
-            } catch (\Exception $e) {
-                DB::rollback();
-                Log::error('Error saving user:', [
-                    'message' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                return redirect()->back()
-                    ->with('error', 'Gagal menyimpan data: ' . $e->getMessage())
-                    ->withInput()
-                    ->with('modal', 'add');
+    
+                $photoName = $slugName . '_' . time() . '.' . $extension;
+                $destination = public_path('images/users');
+    
+                // Pastikan folder tujuan ada
+                if (!file_exists($destination)) {
+                    mkdir($destination, 0755, true);
+                }
+    
+                // Simpan file
+                $photo->move($destination, $photoName);
+    
+                // Simpan path ke database
+                $user->photo = 'images/users/' . $photoName;
             }
+    
+            $user->save();
+            DB::commit();
+    
+            return redirect()->back()->with('success', 'Pengguna berhasil ditambahkan');
         } catch (\Exception $e) {
+            DB::rollback();
             Log::error('User store error:', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+    
             return redirect()->back()
-                ->with('error', 'Terjadi kesalahan saat menyimpan data')
+                ->with('error', 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage())
                 ->withInput()
                 ->with('modal', 'add');
         }
     }
+
 
     /**
      * Memperbarui data user yang sudah ada
@@ -289,7 +290,7 @@ class UserController extends Controller
                 'name' => 'required|string|max:255',
                 'departemen_id' => 'required|exists:departemens,id',
                 'role_id' => 'required|exists:roles,id',
-                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             ], [
                 'name.required' => 'Nama harus diisi',
                 'name.max' => 'Nama maksimal 255 karakter',
@@ -299,9 +300,9 @@ class UserController extends Controller
                 'role_id.exists' => 'Role tidak valid',
                 'photo.image' => 'File harus berupa gambar',
                 'photo.mimes' => 'Format gambar harus jpeg, png, jpg, atau gif',
-                'photo.max' => 'Ukuran gambar maksimal 2MB'
+                'photo.max' => 'Ukuran gambar maksimal 2MB',
             ]);
-
+    
             if ($validator->fails()) {
                 return redirect()->back()
                     ->withErrors($validator)
@@ -309,72 +310,68 @@ class UserController extends Controller
                     ->with('modal', 'edit')
                     ->with('edit_id', $id);
             }
-
+    
             DB::beginTransaction();
-
-            try {
-                // Cari user berdasarkan ID
-                $user = User::findOrFail($id);
-                
-                // Siapkan data untuk update
-                $data = [
-                    'name' => $request->name,
-                    'departemen_id' => $request->departemen_id,
-                    'role_id' => $request->role_id
-                ];
-
-                // Update foto jika ada
-                if ($request->hasFile('photo')) {
-                    // Hapus foto lama jika ada
-                    if ($user->photo && file_exists(public_path($user->photo))) {
-                        unlink(public_path($user->photo));
-                    }
-                    
-                    $photo = $request->file('photo');
-                    $extension = $photo->getClientOriginalExtension();
-                
-                    // Buat nama file dan path yang sesuai
-                    $photoName = Str::slug($request->name) . '_' . time() . '.' . $extension;
-                    $photoPath = 'images/users/' . $photoName;
-                
-                    // Simpan file fisik ke public/images/users
-                    $photo->move(public_path('images/users'), $photoName);
-                
-                    // Simpan path ke database (relatif terhadap public)
-                    $user->photo = $photoPath; // <--- ini disimpan ke database
+    
+            // Cari user
+            $user = User::findOrFail($id);
+    
+            // Update properti
+            $user->name = $request->name;
+            $user->departemen_id = $request->departemen_id;
+            $user->role_id = $request->role_id;
+    
+            // Cek dan upload foto baru
+            if ($request->hasFile('photo')) {
+                // Hapus foto lama
+                if ($user->photo && file_exists(public_path($user->photo))) {
+                    @unlink(public_path($user->photo));
                 }
-
-                $user->update($data);
-                DB::commit();
-
-                return redirect()->back()->with('success', 'Data pengguna berhasil diperbarui');
-            } catch (\Exception $e) {
-                DB::rollback();
-                Log::error('Error updating user data:', [
-                    'user_id' => $id,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-
-                return redirect()->back()
-                    ->with('error', 'Gagal mengupdate data: ' . $e->getMessage())
-                    ->withInput()
-                    ->with('modal', 'edit')
-                    ->with('edit_id', $id);
+    
+                $photo = $request->file('photo');
+                $extension = $photo->getClientOriginalExtension();
+    
+                $slugName = Str::slug($request->name);
+                if (empty($slugName)) {
+                    $slugName = 'user';
+                }
+    
+                $photoName = $slugName . '_' . time() . '.' . $extension;
+                $photoPath = 'images/users/' . $photoName;
+    
+                // Buat folder jika belum ada
+                if (!file_exists(public_path('images/users'))) {
+                    mkdir(public_path('images/users'), 0755, true);
+                }
+    
+                // Pindahkan file
+                $photo->move(public_path('images/users'), $photoName);
+    
+                // Simpan path
+                $user->photo = $photoPath;
             }
+    
+            // Simpan
+            $user->save();
+    
+            DB::commit();
+            return redirect()->back()->with('success', 'Data pengguna berhasil diperbarui');
         } catch (\Exception $e) {
-            Log::error('Error in update method:', [
-                'message' => $e->getMessage(),
+            DB::rollback();
+            Log::error('Error updating user data:', [
+                'user_id' => $id,
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-
+    
             return redirect()->back()
-                ->with('error', 'Terjadi kesalahan sistem')
+                ->with('error', 'Gagal mengupdate data: ' . $e->getMessage())
                 ->withInput()
                 ->with('modal', 'edit')
                 ->with('edit_id', $id);
         }
     }
+
 
     /**
      * Menghapus user dari database
@@ -579,7 +576,7 @@ class UserController extends Controller
                 'photo.mimes' => 'Format gambar harus jpeg, png, jpg, atau gif',
                 'photo.max' => 'Ukuran gambar maksimal 2MB'
             ]);
-
+    
             if ($validator->fails()) {
                 return redirect()->back()
                     ->withErrors($validator)
@@ -587,60 +584,58 @@ class UserController extends Controller
                     ->with('modal', 'photo')
                     ->with('edit_id', $id);
             }
-
+    
             DB::beginTransaction();
-            try {
-                // Cari user berdasarkan ID
-                $user = User::findOrFail($id);
-
-                // Hapus foto lama jika ada
-                if ($user->photo && file_exists(public_path($user->photo))) {
-                    unlink(public_path($user->photo));
-                }
-
-                // Upload foto baru
-                $photo = $request->file('photo');
-                $extension = $photo->getClientOriginalExtension();
-            
-                // Buat nama file dan path yang sesuai
-                $photoName = Str::slug($request->name) . '_' . time() . '.' . $extension;
-                $photoPath = 'images/users/' . $photoName;
-            
-                // Simpan file fisik ke public/images/users
-                $photo->move(public_path('images/users'), $photoName);
-            
-                // Simpan path ke database (relatif terhadap public)
-                $user->photo = $photoPath; // <--- ini disimpan ke database
-
-                DB::commit();
-                return redirect()->back()->with('success', 'Foto profil berhasil diperbarui');
-            } catch (\Exception $e) {
-                DB::rollback();
-                Log::error('Error updating user photo:', [
-                    'user_id' => $id,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-
-                return redirect()->back()
-                    ->with('error', 'Gagal mengupdate foto: ' . $e->getMessage())
-                    ->withInput()
-                    ->with('modal', 'photo')
-                    ->with('edit_id', $id);
+    
+            $user = User::findOrFail($id);
+    
+            // Hapus foto lama jika ada
+            if ($user->photo && file_exists(public_path($user->photo))) {
+                @unlink(public_path($user->photo));
             }
+    
+            $photo = $request->file('photo');
+            $extension = $photo->getClientOriginalExtension();
+    
+            // Gunakan nama user yang sudah ada di DB
+            $slugName = Str::slug($user->name);
+            if (empty($slugName)) {
+                $slugName = 'user';
+            }
+    
+            $photoName = $slugName . '_' . time() . '.' . $extension;
+            $photoPath = 'images/users/' . $photoName;
+    
+            // Buat folder jika belum ada
+            if (!file_exists(public_path('images/users'))) {
+                mkdir(public_path('images/users'), 0755, true);
+            }
+    
+            // Pindahkan file
+            $photo->move(public_path('images/users'), $photoName);
+    
+            // Simpan path ke database
+            $user->photo = $photoPath;
+            $user->save(); // <- penting, tadi tidak ada!
+    
+            DB::commit();
+            return redirect()->back()->with('success', 'Foto profil berhasil diperbarui');
         } catch (\Exception $e) {
-            Log::error('Error in updatePhoto method:', [
-                'message' => $e->getMessage(),
+            DB::rollback();
+            Log::error('Error updating user photo:', [
+                'user_id' => $id,
+                'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-
+    
             return redirect()->back()
-                ->with('error', 'Terjadi kesalahan sistem')
+                ->with('error', 'Gagal mengupdate foto: ' . $e->getMessage())
                 ->withInput()
                 ->with('modal', 'photo')
                 ->with('edit_id', $id);
         }
     }
+
 
     /**
      * Memperbarui informasi dasar user (nama, role, departemen, phone, address)
