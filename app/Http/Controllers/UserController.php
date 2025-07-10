@@ -256,6 +256,7 @@ class UserController extends Controller
     
                 // Simpan file
                 $photo->move($destination, $photoName);
+                chmod(public_path('images/users/' . $photoName), 0644);
     
                 // Simpan path ke database
                 $user->photo = 'images/users/' . $photoName;
@@ -359,6 +360,7 @@ class UserController extends Controller
     
                 // Simpan file
                 $photo->move($destination, $photoName);
+                chmod(public_path('images/users/' . $photoName), 0644);
     
                 // Simpan path ke DB
                 $user->photo = $photoPath;
@@ -631,6 +633,7 @@ class UserController extends Controller
     
             // Simpan file
             $photo->move($destination, $photoName);
+            chmod(public_path('images/users/' . $photoName), 0644);
     
             // Simpan path ke database
             $user->photo = $photoPath;
