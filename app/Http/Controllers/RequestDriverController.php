@@ -142,207 +142,138 @@ class RequestDriverController extends Controller
      */
     public function store(Request $request)
     {
-        // Validasi input
-        $validated = $request->validate([
-            'ekspedisi_id' => 'required|exists:ekspedisis,id',
-            'nopol_kendaraan' => 'required|string|max:255',
-            'nama_driver' => 'required|string|max:255',
-            'no_hp_driver' => 'required|string|max:255',
-            'nama_kernet' => 'nullable|string|max:255',
-            'no_hp_kernet' => 'nullable|string|max:255',
-            'keperluan' => 'required|string',
-            'jam_in' => 'required',
-            'jam_out' => 'required',
-            'acc_admin' => 'nullable',
-            'acc_head_unit' => 'nullable',
-            'acc_security_in' => 'nullable',
-            'acc_security_out' => 'nullable',
-        ]);
-
-        // Set default approval ke 1 (menunggu)
-        $validated = array_merge($validated, [
-            'acc_admin' => 1,
-            'acc_head_unit' => 1,
-            'acc_security_in' => 1,
-            'acc_security_out' => 1
-        ]);
-
         try {
-            // Generate nomor urut
+            // Validasi input
+            $validated = $request->validate([
+                'ekspedisi_id' => 'required|exists:ekspedisis,id',
+                'nopol_kendaraan' => 'required|string|max:255',
+                'nama_driver' => 'required|string|max:255',
+                'no_hp_driver' => 'required|string|max:20',
+                'nama_kernet' => 'nullable|string|max:255',
+                'no_hp_kernet' => 'nullable|string|max:20',
+                'keperluan' => 'required|string|max:255',
+                'jam_in' => 'required',
+                'jam_out' => 'required',
+            ]);
+    
+            // Set status approval default ke "1" (menunggu)
+            $validated = array_merge($validated, [
+                'acc_admin' => 1,
+                'acc_head_unit' => 1,
+                'acc_security_in' => 1,
+                'acc_security_out' => 1
+            ]);
+    
+            // Buat nomor surat
             $today = now();
-            $year = $today->format('y'); // Tahun 2 digit
-            $month = $today->format('m'); // Bulan 2 digit
-            $day = $today->format('d'); // Tanggal 2 digit
-
-            // Ambil nomor urut terakhir untuk hari ini
-            $lastRequest = RequestDriver::whereDate('created_at', $today->toDateString())
-                ->orderBy('no_surat', 'desc')
+            $year = $today->format('y');
+            $month = $today->format('m');
+            $day = $today->format('d');
+    
+            $last = RequestDriver::whereDate('created_at', $today)
+                ->orderByDesc('id')
                 ->first();
-
-            if ($lastRequest) {
-                // Ambil nomor urut dari no_surat terakhir
-                preg_match('/SID\/([0-9]{3})\//', $lastRequest->no_surat, $matches);
-                $lastSequence = isset($matches[1]) ? (int)$matches[1] : 0;
-                $nextSequence = $lastSequence + 1;
-            } else {
-                $nextSequence = 1;
+    
+            $lastSequence = 0;
+            if ($last && preg_match('/SID\/(\d{3})\//', $last->no_surat, $match)) {
+                $lastSequence = (int) $match[1];
             }
-
-            // Pastikan nomor urut tidak melebihi 999
-            if ($nextSequence > 999) {
-                throw new \Exception('Nomor urut melebihi batas maksimum (999)');
+            $nextSequence = str_pad($lastSequence + 1, 3, '0', STR_PAD_LEFT);
+            $noSurat = "SID/{$nextSequence}/{$day}/{$month}/{$year}";
+    
+            // Pastikan unik
+            if (RequestDriver::where('no_surat', $noSurat)->exists()) {
+                throw new \Exception("Nomor surat sudah digunakan. Silakan coba kembali.");
             }
-
-            $nomorUrut = str_pad($nextSequence, 3, '0', STR_PAD_LEFT);
-
-            // Buat no_surat
-            $noSurat = "SID/{$nomorUrut}/{$day}/{$month}/{$year}";
+    
             $validated['no_surat'] = $noSurat;
-
-            // Cek apakah nomor surat sudah ada
-            $existingRequest = RequestDriver::where('no_surat', $noSurat)->first();
-            if ($existingRequest) {
-                throw new \Exception('Nomor surat sudah ada. Silakan coba lagi.');
-            }
-
-            // Buat request driver baru
+    
+            // Simpan data
             $requestDriver = RequestDriver::create($validated);
-
-            // Format pesan untuk driver
-            $driverMessage = "🔔 *Notifikasi Permohonan Izin Keluar Driver*\n\n" .
-                           "No Surat: {$noSurat}\n" .
-                           "Nama Ekspedisi: " . Ekspedisi::find($validated['ekspedisi_id'])->nama_ekspedisi . "\n" .
-                           "Nama Driver: {$validated['nama_driver']}\n" .
-                           "No Polisi: {$validated['nopol_kendaraan']}\n" .
-                           "Keperluan: {$validated['keperluan']}\n" .
-                           "Jam Keluar: {$validated['jam_out']}\n" .
-                           "Jam Kembali: {$validated['jam_in']}\n\n" .
-                           "Status: Menunggu Persetujuan";
-
-            // Kirim notifikasi ke driver
-            if ($validated['no_hp_driver']) {
-                try {
-                    // Bersihkan nomor telepon
-                    $phone = preg_replace('/[^0-9]/', '', $validated['no_hp_driver']);
-                    if (substr($phone, 0, 2) !== '62') {
-                        $phone = '62' . ltrim($phone, '0');
-                    }
-
-                    Log::info('Sending WhatsApp message to driver', [
-                        'original_phone' => $validated['no_hp_driver'],
-                        'formatted_phone' => $phone
-                    ]);
-
-                    // Cek status device terlebih dahulu
-                    if (!$this->whatsappService->checkDeviceStatus()) {
-                        Log::error('WhatsApp device is not connected or inactive');
-                        throw new \Exception('WhatsApp device is not connected or inactive');
-                    }
-
-                    // Validasi nomor telepon
-                    $isPhoneNumberValid = $this->whatsappService->validateNumber($phone);
-                    if (!$isPhoneNumberValid) {
-                        Log::warning('Fonnte API reported invalid phone number or could not validate', ['phone' => $phone]);
-                        // Kita akan tetap mencoba mengirim pesan meskipun validasi Fonnte gagal, untuk melihat apakah pesan terkirim.
-                        // Jika pesan tidak terkirim, masalah mungkin ada di nomor atau API Fonnte.
-                    }
-
-                    $result = $this->whatsappService->sendMessage($phone, $driverMessage);
-                    
-                    if ($result) {
-                        Log::info('WhatsApp message sent successfully to driver', [
-                            'phone' => $phone
-                        ]);
-                    } else {
-                        Log::error('Failed to send WhatsApp message to driver', [
-                            'phone' => $phone
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Error sending WhatsApp message to driver', [
-                        'phone' => $validated['no_hp_driver'],
-                        'error' => $e->getMessage()
-                    ]);
-                }
+    
+            // Ambil data ekspedisi
+            $ekspedisi = Ekspedisi::find($validated['ekspedisi_id']);
+    
+            // Format pesan WhatsApp
+            $message = "🔔 *Permohonan Izin Keluar Driver*\n\n"
+                     . "No Surat: $noSurat\n"
+                     . "Ekspedisi: {$ekspedisi->nama_ekspedisi}\n"
+                     . "Nama Driver: {$validated['nama_driver']}\n"
+                     . "Nopol: {$validated['nopol_kendaraan']}\n"
+                     . "Keperluan: {$validated['keperluan']}\n"
+                     . "Jam Keluar: {$validated['jam_out']}\n"
+                     . "Jam Kembali: {$validated['jam_in']}\n\n"
+                     . "Status: Menunggu Persetujuan";
+    
+            // Kirim ke driver
+            $phone = preg_replace('/[^0-9]/', '', $validated['no_hp_driver']);
+            if (substr($phone, 0, 2) !== '62') {
+                $phone = '62' . ltrim($phone, '0');
             }
-
-            // Format pesan untuk admin/approver
-            $adminMessage = "🔔 *Notifikasi Permohonan Izin Keluar Driver*\n\n" .
-                          "No Surat: {$noSurat}\n" .
-                          "Nama Ekspedisi: " . Ekspedisi::find($validated['ekspedisi_id'])->nama_ekspedisi . "\n" .
-                          "Nama Driver: {$validated['nama_driver']}\n" .
-                          "No Polisi: {$validated['nopol_kendaraan']}\n" .
-                          "Keperluan: {$validated['keperluan']}\n" .
-                          "Jam Keluar: {$validated['jam_out']}\n" .
-                          "Jam Kembali: {$validated['jam_in']}\n\n" .
-                          "Mohon untuk segera melakukan persetujuan.";
-
-            // Kirim notifikasi ke admin
-            $adminUsers = \App\Models\User::whereHas('role', function($query) {
-                $query->whereIn('slug', ['admin', 'checker', 'head-unit']);
-            })->get();
-
-            foreach($adminUsers as $admin) {
-                if ($admin->no_telp) {
-                    $whatsappUrl = $this->whatsappService->sendMessage($admin->no_telp, $adminMessage);
-                    if ($whatsappUrl) {
-                        session()->push('whatsapp_urls', [
-                            'type' => 'admin',
-                            'url' => $whatsappUrl,
-                            'name' => $admin->name
-                        ]);
+    
+            try {
+                if (!$this->whatsappService->checkDeviceStatus()) {
+                    throw new \Exception("Perangkat WhatsApp tidak terhubung.");
+                }
+    
+                $this->whatsappService->sendMessage($phone, $message);
+                Log::info("Pesan WhatsApp berhasil dikirim ke driver: $phone");
+            } catch (\Exception $e) {
+                Log::error("Gagal kirim WhatsApp ke driver", ['phone' => $phone, 'error' => $e->getMessage()]);
+            }
+    
+            // Kirim ke admin, checker, head-unit
+            $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit']))->get();
+            foreach ($adminUsers as $user) {
+                if ($user->no_telp) {
+                    $telp = preg_replace('/[^0-9]/', '', $user->no_telp);
+                    if (substr($telp, 0, 2) !== '62') {
+                        $telp = '62' . ltrim($telp, '0');
+                    }
+                    try {
+                        $this->whatsappService->sendMessage($telp, $message);
+                        Log::info("Pesan WhatsApp berhasil dikirim ke admin: {$user->name}");
+                    } catch (\Exception $e) {
+                        Log::error("Gagal kirim WA ke admin", ['name' => $user->name, 'error' => $e->getMessage()]);
                     }
                 }
             }
-
-            // Cari user dengan role admin, checker, head unit, dan security
-            $users = \App\Models\User::whereHas('role', function($query) {
-                $query->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']);
-            })->get();
-
-            // Buat notifikasi untuk setiap user yang ditemukan
-            foreach($users as $user) {
+    
+            // Notifikasi sistem
+            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
+            foreach ($notifUsers as $user) {
                 Notification::create([
                     'user_id' => $user->id,
-                    'title' => 'Permohonan Izin Keluar Driver ' . Ekspedisi::find($validated['ekspedisi_id'])->nama_ekspedisi,
-                    'message' => 'Permohonan izin driver ' . Ekspedisi::find($validated['ekspedisi_id'])->nama_ekspedisi . 
-                               ' dengan nopol ' . $validated['nopol_kendaraan'] . 
-                               ' sedang menunggu persetujuan',
+                    'title' => 'Permohonan Izin Keluar Driver',
+                    'message' => "Driver {$validated['nama_driver']} dari ekspedisi {$ekspedisi->nama_ekspedisi} mengajukan izin keluar.",
                     'type' => 'driver',
                     'status' => 'pending',
-                    'is_read' => false
+                    'is_read' => false,
                 ]);
             }
-
-            // Kirim pesan WhatsApp ke semua user dengan role checker dan head unit
-            $this->sendWhatsAppToCheckerAndHeadUnit($driverMessage);
-
+    
             // Pesan sukses
-            $successMessage = "Pengajuan izin driver berhasil dikirim.\n" .
-                            "Nama Ekpedisi: " . Ekspedisi::find($validated['ekspedisi_id'])->nama_ekspedisi . "\n" .
-                            "Nomor Polisi: " . $validated['nopol_kendaraan'] . "\n" .
-                            "Nama Driver: " . $validated['nama_driver'] . "\n" .
-                            "Jam Keluar: " . $validated['jam_out'] . "\n" .
-                            "Jam Kembali: " . $validated['jam_in'];
-
-            // Return response berdasarkan tipe request
+            $successMsg = "Pengajuan izin driver berhasil dikirim.\n"
+                        . "No Surat: $noSurat\n"
+                        . "Ekspedisi: {$ekspedisi->nama_ekspedisi}\n"
+                        . "Driver: {$validated['nama_driver']}\n"
+                        . "Nopol: {$validated['nopol_kendaraan']}";
+    
             if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => $successMessage
-                ]);
+                return response()->json(['success' => true, 'message' => $successMsg]);
             }
-
-            return redirect()->back()->with('success', $successMessage);
+    
+            return redirect()->back()->with('success', $successMsg);
+    
         } catch (\Exception $e) {
+            $errorMsg = 'Terjadi kesalahan: ' . $e->getMessage();
+            Log::error($errorMsg);
+    
             if ($request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-                ], 500);
+                return response()->json(['success' => false, 'message' => $errorMsg], 500);
             }
-
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+    
+            return redirect()->back()->with('error', $errorMsg);
         }
     }
 
@@ -372,6 +303,21 @@ class RequestDriverController extends Controller
                     $this->whatsappService->sendMessage($user->phone, $message);
                 } catch (\Exception $e) {}
             }
+        }
+    }
+
+    private function sendWhatsAppToDriver($phone, $message)
+    {
+        // Validasi nomor telepon driver
+        if (!$phone || !preg_match('/^[0-9]{10,15}$/', $phone)) {
+            \Log::warning("Gagal mengirim WA ke driver: Nomor telepon tidak valid - {$phone}");
+            return;
+        }
+    
+        try {
+            $this->whatsappService->sendMessage($phone, $message);
+        } catch (\Exception $e) {
+            \Log::error("Gagal mengirim WhatsApp ke driver: " . $e->getMessage());
         }
     }
 
