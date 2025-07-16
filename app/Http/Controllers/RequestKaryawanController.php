@@ -129,7 +129,6 @@ class RequestKaryawanController extends Controller
     public function store(Request $request)
     {
         try {
-            // Validasi input
             $validated = $request->validate([
                 'nama' => 'required|string|max:255',
                 'no_telp' => 'required|string|max:15|regex:/^[0-9]+$/',
@@ -137,207 +136,70 @@ class RequestKaryawanController extends Controller
                 'keperluan' => 'required|string',
                 'jam_in' => 'required',
                 'jam_out' => 'required',
-                'acc_lead' => 'nullable',
-                'acc_hr_ga' => 'nullable',
-                'acc_security_in' => 'nullable',
-                'acc_security_out' => 'nullable',
-            ], [
-                'no_telp.required' => 'Nomor telepon wajib diisi.',
-                'no_telp.max' => 'Nomor telepon maksimal 15 digit.',
-                'no_telp.regex' => 'Nomor telepon hanya boleh berisi angka.',
             ]);
-
-            // Set default approval ke 1 (menunggu)
-            $validated = array_merge($validated, [
+    
+            $validated += [
                 'acc_lead' => 1,
                 'acc_hr_ga' => 1,
                 'acc_security_in' => 1,
                 'acc_security_out' => 1
-            ]);
-
-            // Mendapatkan kode departemen
-            $departemen = Departemen::find($validated['departemen_id']);
-            $departemenCode = $departemen->code;
-
-            // Generate nomor urut
+            ];
+    
+            $departemen = Departemen::findOrFail($validated['departemen_id']);
+            $code = $departemen->code;
+    
             $today = now();
-            $year = $today->format('y'); // Tahun 2 digit
-            $month = $today->format('m'); // Bulan 2 digit
-            $day = $today->format('d'); // Tanggal 2 digit
-
-            // Hitung nomor urut untuk hari ini berdasarkan departemen
-            $lastRequest = RequestKaryawan::where('departemen_id', $validated['departemen_id'])
-                                        ->whereDate('created_at', $today->toDateString())
-                                        ->orderBy('no_surat', 'desc')
-                                        ->first();
-
-            if ($lastRequest) {
-                // Ambil nomor urut dari no_surat terakhir
-                preg_match('/SIP\/' . $departemenCode . '\/([0-9]{3})\//', $lastRequest->no_surat, $matches);
-                $lastSequence = isset($matches[1]) ? (int)$matches[1] : 0;
-                $nextSequence = $lastSequence + 1;
-            } else {
-                $nextSequence = 1;
+            $year = $today->format('y');
+            $month = $today->format('m');
+            $day = $today->format('d');
+    
+            $last = RequestKaryawan::where('departemen_id', $validated['departemen_id'])
+                ->whereDate('created_at', $today)
+                ->orderByDesc('no_surat')
+                ->first();
+    
+            $lastSequence = 0;
+            if ($last) {
+                preg_match("/SIP\/$code\/(\d{3})\//", $last->no_surat, $match);
+                $lastSequence = isset($match[1]) ? (int)$match[1] : 0;
             }
-
-            // Pastikan nomor urut tidak melebihi 999
-            if ($nextSequence > 999) {
-                throw new \Exception('Nomor urut melebihi batas maksimum (999)');
+            $next = str_pad($lastSequence + 1, 3, '0', STR_PAD_LEFT);
+            $noSurat = "SIP/$code/$next/$day/$month/$year";
+    
+            if (RequestKaryawan::where('no_surat', $noSurat)->exists()) {
+                throw new \Exception('Nomor surat sudah digunakan, silakan coba kembali.');
             }
-
-            $nomorUrut = str_pad($nextSequence, 3, '0', STR_PAD_LEFT);
-
-            // Buat no_surat
-            $noSurat = "SIP/{$departemenCode}/{$nomorUrut}/{$day}/{$month}/{$year}";
+    
             $validated['no_surat'] = $noSurat;
-
-            // Cek apakah nomor surat sudah ada
-            $existingRequest = RequestKaryawan::where('no_surat', $noSurat)->first();
-            if ($existingRequest) {
-                throw new \Exception('Nomor surat sudah ada. Silakan coba lagi.');
-            }
-
-            // Buat request karyawan baru
             $requestKaryawan = RequestKaryawan::create($validated);
-
-            // Format pesan untuk karyawan
-            $karyawanMessage = "🔔 *Notifikasi Permohonan Izin Keluar*\n\n" .
-                             "No Surat: {$noSurat}\n" .
-                             "Nama: {$validated['nama']}\n" .
-                             "Departemen: {$departemen->name}\n" .
-                             "Keperluan: {$validated['keperluan']}\n" .
-                             "Jam Keluar: {$validated['jam_out']}\n" .
-                             "Jam Kembali: {$validated['jam_in']}\n\n" .
-                             "Status: Menunggu Persetujuan";
-
-            // Kirim notifikasi ke karyawan
-            if ($validated['no_telp']) {
-                try {
-                    // Bersihkan nomor telepon
-                    $phone = preg_replace('/[^0-9]/', '', $validated['no_telp']);
-                    if (substr($phone, 0, 2) !== '62') {
-                        $phone = '62' . ltrim($phone, '0');
-                    }
-
-                    Log::info('Sending WhatsApp message to karyawan', [
-                        'original_phone' => $validated['no_telp'],
-                        'formatted_phone' => $phone
-                    ]);
-
-                    // Cek status device terlebih dahulu
-                    if (!$this->whatsappService->checkDeviceStatus()) {
-                        Log::error('WhatsApp device is not connected or inactive');
-                        throw new \Exception('WhatsApp device is not connected or inactive');
-                    }
-
-                    // Validasi nomor telepon
-                    $isPhoneNumberValid = $this->whatsappService->validateNumber($phone);
-                    if (!$isPhoneNumberValid) {
-                        Log::warning('Fonnte API reported invalid phone number or could not validate', ['phone' => $phone]);
-                        // Kita akan tetap mencoba mengirim pesan meskipun validasi Fonnte gagal, untuk melihat apakah pesan terkirim.
-                        // Jika pesan tidak terkirim, masalah mungkin ada di nomor atau API Fonnte.
-                    }
-
-                    $result = $this->whatsappService->sendMessage($phone, $karyawanMessage);
-                    
-                    if ($result) {
-                        Log::info('WhatsApp message sent successfully to karyawan', [
-                            'phone' => $phone
-                        ]);
-                    } else {
-                        Log::error('Failed to send WhatsApp message to karyawan', [
-                            'phone' => $phone
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Error sending WhatsApp message to karyawan', [
-                        'phone' => $validated['no_telp'],
-                        'error' => $e->getMessage()
-                    ]);
-                }
+    
+            // Format nomor telepon WA
+            $phone = preg_replace('/[^0-9]/', '', $validated['no_telp']);
+            if (substr($phone, 0, 2) !== '62') {
+                $phone = '62' . ltrim($phone, '0');
             }
-
-            // Format pesan untuk admin/approver
-            $adminMessage = "🔔 *Notifikasi Permohonan Izin Keluar Karyawan*\n\n" .
-                          "No Surat: {$noSurat}\n" .
-                          "Nama: {$validated['nama']}\n" .
-                          "Departemen: {$departemen->name}\n" .
-                          "Keperluan: {$validated['keperluan']}\n" .
-                          "Jam Keluar: {$validated['jam_out']}\n" .
-                          "Jam Kembali: {$validated['jam_in']}\n\n" .
-                          "Mohon untuk segera melakukan persetujuan.";
-
-            // Kirim notifikasi ke admin
-            $adminUsers = \App\Models\User::whereHas('role', function($query) {
-                $query->whereIn('slug', ['admin', 'lead', 'hr-ga']);
-            })->get();
-
-            foreach($adminUsers as $admin) {
-                if ($admin->no_telp) {
-                    try {
-                        $result = $this->whatsappService->sendMessage($admin->no_telp, $adminMessage);
-                        Log::info('WhatsApp message sent to admin', [
-                            'phone' => $admin->no_telp,
-                            'message' => $adminMessage,
-                            'result' => $result
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::error('Failed to send WhatsApp message to admin', [
-                            'phone' => $admin->no_telp,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
-            }
-
-            // Cari user dengan role admin, lead, hr-ga, dan security
-            $users = \App\Models\User::whereHas('role', function($query) {
-                $query->whereIn('slug', ['admin', 'lead', 'hr-ga', 'security']);
-            })->get();
-
-            // Buat notifikasi untuk setiap user yang ditemukan
-            foreach($users as $user) {
+    
+            $message = "🔔 *Notifikasi Permohonan Izin Karyawan*\n\nNo Surat: $noSurat\nNama: {$validated['nama']}\nDepartemen: {$departemen->name}\nKeperluan: {$validated['keperluan']}\nJam Keluar: {$validated['jam_out']}\nJam Kembali: {$validated['jam_in']}\n\nStatus: Menunggu Persetujuan";
+    
+            $this->sendWhatsAppToKaryawan($phone, $message);
+            $this->sendWhatsAppToDepartemenAndHRGA($validated['departemen_id'], $message);
+    
+            // Simpan notifikasi
+            $users = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'lead', 'hr-ga', 'security']))->get();
+            foreach ($users as $user) {
                 Notification::create([
                     'user_id' => $user->id,
-                    'title' => 'Permohonan Izin Keluar ' . $validated['nama'],
-                    'message' => 'Permohonan izin keluar atas nama ' . $validated['nama'] . 
-                               ' dari departemen ' . $departemen->name . 
-                               ' untuk keperluan ' . $validated['keperluan'] . 
-                               ' sedang menunggu persetujuan',
+                    'title' => 'Permohonan Izin Karyawan - ' . $validated['nama'],
+                    'message' => 'Permohonan atas nama ' . $validated['nama'] . ' sedang menunggu persetujuan.',
                     'type' => 'karyawan',
                     'status' => 'pending',
                     'is_read' => false
                 ]);
             }
-
-            // Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
-            $this->sendWhatsAppToDepartemenAndHRGA($validated['departemen_id'], $karyawanMessage);
-
-            // Pesan sukses
-            $successMessage = "Pengajuan izin karyawan berhasil dikirim.\n" .
-                            "Nama: " . $validated['nama'] . "\n" .
-                            "Departemen: " . $departemen->name . "\n" .
-                            "Jam Keluar: " . $validated['jam_out'] . "\n" .
-                            "Jam Kembali: " . $validated['jam_in'];
-
-            // Return response berdasarkan tipe request
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => $successMessage
-                ]);
-            }
-
-            return redirect()->back()->with('success', $successMessage);
+    
+            return back()->with('success', 'Pengajuan izin karyawan berhasil dibuat.');
         } catch (\Exception $e) {
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-                ], 500);
-            }
-
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 
