@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Models\Notification;
 use App\Models\RequestDriver;
 use App\Models\Ekspedisi;
@@ -223,7 +224,7 @@ class RequestDriverController extends Controller
             }
     
             // Kirim ke admin, checker, head-unit
-            $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit']))->get();
+            $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
             foreach ($adminUsers as $user) {
                 if ($user->no_telp) {
                     $telp = preg_replace('/[^0-9]/', '', $user->no_telp);
