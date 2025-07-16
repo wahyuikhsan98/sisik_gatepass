@@ -351,92 +351,90 @@ class RequestKaryawanController extends Controller
     public function accRequest($id, $role_id)
     {
         try {
-            // Ambil data request karyawan dengan relasi departemen
             $requestKaryawan = RequestKaryawan::with(['departemen'])->find($id);
-
-            // Cek apakah data request karyawan ada
+    
             if (!$requestKaryawan) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Data Request Karyawan tidak ditemukan'
                 ], 404);
             }
-
-            // Update status persetujuan berdasarkan role
+    
+            $notificationTitle = '';
+            $notificationMessage = '';
+            $users = collect();
+    
             switch ($role_id) {
                 case 2: // Lead
                     $requestKaryawan->acc_lead = 2;
                     $notificationTitle = 'Disetujui Lead';
                     $notificationMessage = 'telah disetujui oleh Lead dan menunggu persetujuan HR GA';
-                    // Cari user dengan role HR GA dan admin
                     $users = \App\Models\User::whereHas('role', function($query) {
-                        $query->whereIn('slug', ['hr-ga', 'admin']);
+                        $query->where('slug', 'hr-ga');
                     })->get();
                     break;
+    
                 case 3: // HR GA
                     $requestKaryawan->acc_hr_ga = 2;
                     $notificationTitle = 'Disetujui HR GA';
                     $notificationMessage = 'telah disetujui oleh HR GA dan menunggu persetujuan Security Out';
-                    // Cari user dengan role security dan admin
                     $users = \App\Models\User::whereHas('role', function($query) {
-                        $query->whereIn('slug', ['security', 'admin']);
+                        $query->where('slug', 'security');
                     })->get();
                     break;
+    
                 case 6: // Security
                     if ($requestKaryawan->acc_security_out == 1) {
                         $requestKaryawan->acc_security_out = 2;
                         $notificationTitle = 'Disetujui Security Out';
                         $notificationMessage = 'telah disetujui oleh Security Out dan menunggu karyawan kembali';
-                        // Cari user dengan role admin
-                        $users = \App\Models\User::whereHas('role', function($query) {
-                            $query->where('slug', 'admin');
-                        })->get();
                     } else {
                         $requestKaryawan->acc_security_in = 2;
                         $notificationTitle = 'Disetujui Security In';
                         $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
-                        // Cari user dengan role admin
-                        $users = \App\Models\User::whereHas('role', function($query) {
-                            $query->where('slug', 'admin');
-                        })->get();
                     }
                     break;
+    
                 default:
                     return response()->json([
                         'success' => false,
                         'message' => 'Role tidak valid'
                     ], 400);
             }
-
-            // Simpan perubahan
+    
             $requestKaryawan->save();
-
-            // Format pesan untuk approval
+    
             $karyawanMessage = "🔔 *Persetujuan Permohonan Izin Keluar Karyawan*\n\n" .
                 "Nama: {$requestKaryawan->nama}\n" .
                 "Departemen: {$requestKaryawan->departemen->name}\n" .
                 "Keperluan: {$requestKaryawan->keperluan}\n" .
                 "Jam Keluar: {$requestKaryawan->jam_out}\n" .
                 "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
-                "Status: Permohonan telah diproses";
-
-            // Buat notifikasi untuk setiap user yang ditemukan
-            foreach($users as $user) {
+                "Status: {$notificationTitle} — {$notificationMessage}";
+    
+            // Simpan notifikasi & kirim WhatsApp ke user yang berwenang
+            foreach ($users as $user) {
                 Notification::create([
                     'user_id' => $user->id,
                     'title' => 'Permohonan Izin Keluar ' . $requestKaryawan->nama . ' ' . $notificationTitle,
-                    'message' => 'Permohonan izin keluar atas nama ' . $requestKaryawan->nama . 
-                               ' dari departemen ' . $requestKaryawan->departemen->name . 
-                               ' ' . $notificationMessage,
+                    'message' => 'Permohonan izin keluar atas nama ' . $requestKaryawan->nama .
+                        ' dari departemen ' . $requestKaryawan->departemen->name .
+                        ' ' . $notificationMessage,
                     'type' => 'karyawan',
                     'status' => 'pending',
                     'is_read' => false
                 ]);
+    
+                if ($user->phone) {
+                    $this->whatsappService->sendMessage($user->phone, $karyawanMessage);
+                }
             }
-
-            // Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
-            $this->sendWhatsAppToDepartemenAndHRGA($requestKaryawan->departemen_id, $karyawanMessage);
-
+    
+            // Kirim WA ke karyawan berdasarkan no_telp di form
+            if ($requestKaryawan->no_telp) {
+                $this->sendWhatsAppToKaryawan($requestKaryawan->no_telp, $karyawanMessage);
+            }
+    
             return response()->json([
                 'success' => true,
                 'message' => 'Permohonan izin berhasil disetujui'
@@ -459,51 +457,112 @@ class RequestKaryawanController extends Controller
     public function updateStatus($id, Request $request)
     {
         try {
-            $requestKaryawan = RequestKaryawan::find($id);
-
+            $requestKaryawan = RequestKaryawan::with('departemen')->find($id);
+    
             if (!$requestKaryawan) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Request Karyawan tidak ditemukan.'
                 ], 404);
             }
-
+    
             $statuses = $request->input('statuses');
-            
+    
             foreach ($statuses as $role => $status) {
-                // Pastikan role yang diperbarui sesuai dengan kolom di database
-                if ($role === 'lead') {
-                    $requestKaryawan->acc_lead = $status;
-                } elseif ($role === 'hr-ga') {
-                    $requestKaryawan->acc_hr_ga = $status;
-                } elseif ($role === 'security-out') {
-                    $requestKaryawan->acc_security_out = $status;
-                } elseif ($role === 'security-in') {
-                    $requestKaryawan->acc_security_in = $status;
+                $notificationTitle = '';
+                $notificationMessage = '';
+                $targetUsers = collect(); // default kosong
+    
+                // Update status sesuai role
+                switch ($role) {
+                    case 'lead':
+                        $requestKaryawan->acc_lead = $status;
+                        if ($status == 2) {
+                            $notificationTitle = 'Disetujui Lead';
+                            $notificationMessage = 'telah disetujui oleh Lead dan menunggu persetujuan HR GA';
+                            $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('slug', ['hr-ga']))->get();
+                        }
+                        break;
+    
+                    case 'hr-ga':
+                        $requestKaryawan->acc_hr_ga = $status;
+                        if ($status == 2) {
+                            $notificationTitle = 'Disetujui HR GA';
+                            $notificationMessage = 'telah disetujui oleh HR GA dan menunggu persetujuan Security Out';
+                            $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('slug', ['security']))->get();
+                        }
+                        break;
+    
+                    case 'security-out':
+                        $requestKaryawan->acc_security_out = $status;
+                        if ($status == 2) {
+                            $notificationTitle = 'Disetujui Security Out';
+                            $notificationMessage = 'telah disetujui oleh Security Out dan menunggu karyawan kembali';
+                            // Tidak kirim ke user lain
+                        }
+                        break;
+    
+                    case 'security-in':
+                        $requestKaryawan->acc_security_in = $status;
+                        if ($status == 2) {
+                            $notificationTitle = 'Disetujui Security In';
+                            $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
+                            // Tidak kirim ke user lain
+                        }
+                        break;
+                }
+    
+                // Jika ada notifikasi untuk role lain
+                if ($status == 2 && $notificationTitle && $notificationMessage) {
+                    foreach ($targetUsers as $user) {
+                        Notification::create([
+                            'user_id' => $user->id,
+                            'title' => 'Permohonan Izin Keluar ' . $requestKaryawan->nama . ' ' . $notificationTitle,
+                            'message' => 'Permohonan izin keluar atas nama ' . $requestKaryawan->nama .
+                                         ' dari departemen ' . $requestKaryawan->departemen->name .
+                                         ' ' . $notificationMessage,
+                            'type' => 'karyawan',
+                            'status' => 'pending',
+                            'is_read' => false
+                        ]);
+    
+                        // Kirim WhatsApp ke user
+                        if ($user->phone) {
+                            try {
+                                $this->whatsappService->sendMessage($user->phone, 
+                                    "🔔 *Notifikasi Permohonan Izin Keluar*\n\n" .
+                                    "Nama: {$requestKaryawan->nama}\n" .
+                                    "Departemen: {$requestKaryawan->departemen->name}\n" .
+                                    "Status: {$notificationTitle}\n" .
+                                    "Catatan: {$notificationMessage}"
+                                );
+                            } catch (\Exception $e) {}
+                        }
+                    }
+                }
+    
+                // Kirim WA ke karyawan
+                if ($status == 2 && $requestKaryawan->no_telp) {
+                    $karyawanMessage = "🔔 *Update Status Permohonan Izin Keluar Karyawan*\n\n" .
+                        "Nama: {$requestKaryawan->nama}\n" .
+                        "Departemen: {$requestKaryawan->departemen->name}\n" .
+                        "Keperluan: {$requestKaryawan->keperluan}\n" .
+                        "Jam Keluar: {$requestKaryawan->jam_out}\n" .
+                        "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
+                        "Status: {$notificationTitle}";
+    
+                    $this->sendWhatsAppToKaryawan($requestKaryawan->no_telp, $karyawanMessage);
                 }
             }
-
+    
             $requestKaryawan->save();
-
-            // Format pesan untuk update status
-            $karyawanMessage = "🔔 *Update Status Permohonan Izin Keluar Karyawan*\n\n" .
-                "Nama: {$requestKaryawan->nama}\n" .
-                "Departemen: {$requestKaryawan->departemen->name}\n" .
-                "Keperluan: {$requestKaryawan->keperluan}\n" .
-                "Jam Keluar: {$requestKaryawan->jam_out}\n" .
-                "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
-                "Status: Status permohonan telah diperbarui";
-
-            // Kirim pesan WhatsApp ke semua user departemen terkait dan HR-GA
-            $this->sendWhatsAppToDepartemenAndHRGA($requestKaryawan->departemen_id, $karyawanMessage);
-
+    
             return response()->json([
                 'success' => true,
                 'message' => 'Status permohonan berhasil diperbarui.'
             ]);
-
         } catch (\Exception $e) {
-            Log::error('Error updating status for RequestKaryawan: ' . $e->getMessage());
+            \Log::error('Error updating status for RequestKaryawan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat memperbarui status: ' . $e->getMessage()
@@ -996,6 +1055,29 @@ class RequestKaryawanController extends Controller
                     $this->whatsappService->sendMessage($user->phone, $message);
                 } catch (\Exception $e) {}
             }
+        }
+    }
+
+    /**
+     * Kirim pesan WhatsApp ke karyawan berdasarkan nomor telepon dari request karyawan.
+     *
+     * @param string $phone Nomor telepon karyawan (wajib diawali dengan kode negara, misal 6281234567890)
+     * @param string $message Pesan WhatsApp yang ingin dikirimkan
+     */
+    private function sendWhatsAppToKaryawan($phone, $message)
+    {
+        // Cek jika nomor telepon valid
+        if (!$phone || !preg_match('/^[0-9]{10,15}$/', $phone)) {
+            // Nomor tidak valid atau kosong, abaikan atau bisa di-log
+            \Log::warning("Gagal mengirim WA ke karyawan: Nomor telepon tidak valid - {$phone}");
+            return;
+        }
+    
+        try {
+            $this->whatsappService->sendMessage($phone, $message);
+        } catch (\Exception $e) {
+            // Tangkap dan log error jika gagal kirim
+            \Log::error("Gagal mengirim WhatsApp ke karyawan: " . $e->getMessage());
         }
     }
 }
