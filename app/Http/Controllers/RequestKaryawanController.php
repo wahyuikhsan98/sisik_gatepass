@@ -283,7 +283,11 @@ class RequestKaryawanController extends Controller
                 "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
                 "Status: {$notificationTitle} — {$notificationMessage}";
 
-            // Simpan notifikasi & kirim WhatsApp ke user yang berwenang
+            // Notifikasi & WhatsApp ke user role terkait, kecuali karyawan
+            $karyawanPhone = preg_replace('/[^0-9]/', '', $requestKaryawan->no_telp);
+            if (substr($karyawanPhone, 0, 2) !== '62') {
+                $karyawanPhone = '62' . ltrim($karyawanPhone, '0');
+            }
             foreach ($users as $user) {
                 Notification::create([
                     'user_id' => $user->id,
@@ -296,14 +300,14 @@ class RequestKaryawanController extends Controller
                     'is_read' => false
                 ]);
 
-                if ($user->phone) {
+                if ($user->phone && $user->phone !== $karyawanPhone) {
                     $this->whatsappService->sendMessage($user->phone, $karyawanMessage);
                 }
             }
 
-            // Kirim WA ke karyawan berdasarkan no_telp di form
-            if ($requestKaryawan->no_telp) {
-                $this->sendWhatsAppToKaryawan($requestKaryawan->no_telp, $karyawanMessage);
+            // WhatsApp ke karyawan (hanya satu kali)
+            if ($karyawanPhone) {
+                $this->sendWhatsAppToKaryawan($karyawanPhone, $karyawanMessage);
             }
 
             return response()->json([
@@ -385,6 +389,10 @@ class RequestKaryawanController extends Controller
 
                 // Jika ada notifikasi untuk role lain
                 if ($status == 2 && $notificationTitle && $notificationMessage) {
+                    $karyawanPhone = preg_replace('/[^0-9]/', '', $requestKaryawan->no_telp);
+                    if (substr($karyawanPhone, 0, 2) !== '62') {
+                        $karyawanPhone = '62' . ltrim($karyawanPhone, '0');
+                    }
                     foreach ($targetUsers as $user) {
                         Notification::create([
                             'user_id' => $user->id,
@@ -397,8 +405,8 @@ class RequestKaryawanController extends Controller
                             'is_read' => false
                         ]);
 
-                        // Kirim WhatsApp ke user
-                        if ($user->phone) {
+                        // Kirim WhatsApp ke user, kecuali karyawan
+                        if ($user->phone && $user->phone !== $karyawanPhone) {
                             try {
                                 $this->whatsappService->sendMessage($user->phone,
                                     "🔔 *Notifikasi Permohonan Izin Keluar*\n\n" .
@@ -412,8 +420,8 @@ class RequestKaryawanController extends Controller
                     }
                 }
 
-                // Kirim WA ke karyawan
-                if ($status == 2 && $requestKaryawan->no_telp) {
+                // Kirim WA ke karyawan (hanya satu kali)
+                if ($status == 2 && $karyawanPhone) {
                     $karyawanMessage = "🔔 *Update Status Permohonan Izin Keluar Karyawan*\n\n" .
                         "Nama: {$requestKaryawan->nama}\n" .
                         "Departemen: {$requestKaryawan->departemen->name}\n" .
@@ -422,7 +430,7 @@ class RequestKaryawanController extends Controller
                         "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
                         "Status: {$notificationTitle}";
 
-                    $this->sendWhatsAppToKaryawan($requestKaryawan->no_telp, $karyawanMessage);
+                    $this->sendWhatsAppToKaryawan($karyawanPhone, $karyawanMessage);
                 }
             }
 
