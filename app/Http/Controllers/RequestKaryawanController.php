@@ -181,11 +181,13 @@ class RequestKaryawanController extends Controller
 
             $message = "🔔 *Permohonan Izin Keluar Karyawan*\n\nNo Surat: $noSurat\nNama: {$validated['nama']}\nDepartemen: {$departemen->name}\nKeperluan: {$validated['keperluan']}\nJam Keluar: {$validated['jam_out']}\nJam Kembali: {$validated['jam_in']}\n\nStatus: Menunggu Persetujuan";
 
-            // Ambil semua user dengan role terkait (admin, lead, hr-ga, security)
+            // WhatsApp ke karyawan (hanya satu kali)
+            $this->sendWhatsAppToKaryawan($phone, $message);
+
+            // Notifikasi & WhatsApp ke user role terkait, kecuali nomor karyawan
             $roles = ['admin', 'lead', 'hr-ga', 'security'];
             $users = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('slug', $roles))->get();
             foreach ($users as $user) {
-                // Notifikasi
                 Notification::create([
                     'user_id' => $user->id,
                     'title' => 'Permohonan Izin Keluar Karyawan - ' . $validated['nama'],
@@ -194,8 +196,8 @@ class RequestKaryawanController extends Controller
                     'status' => 'pending',
                     'is_read' => false
                 ]);
-                // WhatsApp
-                if ($user->phone) {
+                // WhatsApp ke user role terkait, kecuali nomor karyawan
+                if ($user->phone && $user->phone !== $phone) {
                     try {
                         $this->whatsappService->sendMessage($user->phone, $message);
                     } catch (\Exception $e) {
@@ -203,8 +205,6 @@ class RequestKaryawanController extends Controller
                     }
                 }
             }
-            // WhatsApp ke karyawan
-            $this->sendWhatsAppToKaryawan($phone, $message);
 
             return back()->with('success', 'Pengajuan izin karyawan berhasil dibuat.');
         } catch (\Exception $e) {
