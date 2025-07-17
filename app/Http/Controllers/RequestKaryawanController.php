@@ -206,8 +206,14 @@ class RequestKaryawanController extends Controller
                 }
             }
 
+            if ($request->ajax()) {
+                return response()->json(['success' => true, 'message' => 'Pengajuan izin karyawan berhasil dibuat.']);
+            }
             return back()->with('success', 'Pengajuan izin karyawan berhasil dibuat.');
         } catch (\Exception $e) {
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => 'Terjadi kesalahan: ' . $e->getMessage()], 500);
+            }
             return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
