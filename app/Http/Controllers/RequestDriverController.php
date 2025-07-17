@@ -24,7 +24,7 @@ class RequestDriverController extends Controller
 
     /**
      * Menampilkan daftar permohonan izin keluar driver
-     * 
+     *
      * @return \Illuminate\View\View
      */
     public function index()
@@ -38,7 +38,7 @@ class RequestDriverController extends Controller
         if ($user->role_id != 2 && $user->role_id != 3) { // Bukan role lead dan hr-ga
             $requestDrivers = RequestDriver::with('ekspedisi')->get();
         }
-        
+
         // Menghitung total request berdasarkan status dengan urutan persetujuan untuk permohonan yang terlihat oleh user
         $totalMenunggu = 0;
         $totalDisetujui = 0;
@@ -59,13 +59,13 @@ class RequestDriverController extends Controller
                 ->where('acc_security_in', '!=', 3);
             })
             ->count();
-                
+
             // Permohonan Disetujui Driver: Sudah disetujui Admin, Head Unit, dan Security Out (baik sudah kembali atau belum)
             $totalDisetujui = RequestDriver::where('acc_admin', 2)
                 ->where('acc_head_unit', 2)
                 ->where('acc_security_out', 2)
                 ->count();
-                
+
             // Permohonan Ditolak Driver: Ditolak oleh salah satu pihak
             $totalDitolak = RequestDriver::where(function($query) {
                 $query->where('acc_admin', 3) // Admin menolak
@@ -73,7 +73,7 @@ class RequestDriverController extends Controller
                     ->orWhere('acc_security_out', 3) // Security Out menolak
                     ->orWhere('acc_security_in', 3); // Security In menolak
             })->count();
-                
+
             // Total semua request driver yang terlihat oleh user
             $totalRequest = RequestDriver::count();
         }
@@ -95,37 +95,37 @@ class RequestDriverController extends Controller
 
     /**
      * Mengambil tahun-tahun yang tersedia untuk filter
-     * 
+     *
      * @return array
      */
     private function getAvailableYears()
     {
         $years = [];
         $currentYear = date('Y');
-        
+
         // Ambil tahun dari data permohonan
         $driverYears = RequestDriver::selectRaw('YEAR(created_at) as year')
             ->distinct()
             ->pluck('year')
             ->toArray();
-            
+
         // Gabungkan dan hapus duplikat
         $years = array_unique($driverYears);
-        
+
         // Tambahkan tahun saat ini jika belum ada
         if (!in_array($currentYear, $years)) {
             $years[] = $currentYear;
         }
-        
+
         // Urutkan dari yang terbaru
         rsort($years);
-        
+
         return $years;
     }
 
     /**
      * Menampilkan form pengajuan izin keluar driver
-     * 
+     *
      * @return \Illuminate\View\View
      */
     public function create()
@@ -137,7 +137,7 @@ class RequestDriverController extends Controller
 
     /**
      * Menyimpan permohonan izin keluar driver baru
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse|\Illuminate\Http\RedirectResponse
      */
@@ -156,7 +156,7 @@ class RequestDriverController extends Controller
                 'jam_in' => 'required',
                 'jam_out' => 'required',
             ]);
-    
+
             // Set status approval default ke "1" (menunggu)
             $validated = array_merge($validated, [
                 'acc_admin' => 1,
@@ -164,37 +164,37 @@ class RequestDriverController extends Controller
                 'acc_security_in' => 1,
                 'acc_security_out' => 1
             ]);
-    
+
             // Buat nomor surat
             $today = now();
             $year = $today->format('y');
             $month = $today->format('m');
             $day = $today->format('d');
-    
+
             $last = RequestDriver::whereDate('created_at', $today)
                 ->orderByDesc('id')
                 ->first();
-    
+
             $lastSequence = 0;
             if ($last && preg_match('/SID\/(\d{3})\//', $last->no_surat, $match)) {
                 $lastSequence = (int) $match[1];
             }
             $nextSequence = str_pad($lastSequence + 1, 3, '0', STR_PAD_LEFT);
             $noSurat = "SID/{$nextSequence}/{$day}/{$month}/{$year}";
-    
+
             // Pastikan unik
             if (RequestDriver::where('no_surat', $noSurat)->exists()) {
                 throw new \Exception("Nomor surat sudah digunakan. Silakan coba kembali.");
             }
-    
+
             $validated['no_surat'] = $noSurat;
-    
+
             // Simpan data
             $requestDriver = RequestDriver::create($validated);
-    
+
             // Ambil data ekspedisi
             $ekspedisi = Ekspedisi::find($validated['ekspedisi_id']);
-    
+
             // Format pesan WhatsApp
             $message = "🔔 *Permohonan Izin Keluar Driver*\n\n"
                      . "No Surat: $noSurat\n"
@@ -205,24 +205,24 @@ class RequestDriverController extends Controller
                      . "Jam Keluar: {$validated['jam_out']}\n"
                      . "Jam Kembali: {$validated['jam_in']}\n\n"
                      . "Status: Menunggu Persetujuan";
-    
+
             // Kirim ke driver
             $phone = preg_replace('/[^0-9]/', '', $validated['no_hp_driver']);
             if (substr($phone, 0, 2) !== '62') {
                 $phone = '62' . ltrim($phone, '0');
             }
-    
+
             try {
                 if (!$this->whatsappService->checkDeviceStatus()) {
                     throw new \Exception("Perangkat WhatsApp tidak terhubung.");
                 }
-    
+
                 $this->whatsappService->sendMessage($phone, $message);
                 Log::info("Pesan WhatsApp berhasil dikirim ke driver: $phone");
             } catch (\Exception $e) {
                 Log::error("Gagal kirim WhatsApp ke driver", ['phone' => $phone, 'error' => $e->getMessage()]);
             }
-    
+
             // Kirim ke admin, checker, head-unit
             $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
             foreach ($adminUsers as $user) {
@@ -239,7 +239,7 @@ class RequestDriverController extends Controller
                     }
                 }
             }
-    
+
             // Notifikasi sistem
             $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
             foreach ($notifUsers as $user) {
@@ -252,28 +252,28 @@ class RequestDriverController extends Controller
                     'is_read' => false,
                 ]);
             }
-    
+
             // Pesan sukses
             $successMsg = "Pengajuan izin driver berhasil dikirim.\n"
                         . "No Surat: $noSurat\n"
                         . "Ekspedisi: {$ekspedisi->nama_ekspedisi}\n"
                         . "Driver: {$validated['nama_driver']}\n"
                         . "Nopol: {$validated['nopol_kendaraan']}";
-    
+
             if ($request->ajax()) {
                 return response()->json(['success' => true, 'message' => $successMsg]);
             }
-    
+
             return redirect()->back()->with('success', $successMsg);
-    
+
         } catch (\Exception $e) {
             $errorMsg = 'Terjadi kesalahan: ' . $e->getMessage();
             Log::error($errorMsg);
-    
+
             if ($request->ajax()) {
                 return response()->json(['success' => false, 'message' => $errorMsg], 500);
             }
-    
+
             return redirect()->back()->with('error', $errorMsg);
         }
     }
@@ -311,20 +311,20 @@ class RequestDriverController extends Controller
     {
         // Validasi nomor telepon driver
         if (!$phone || !preg_match('/^[0-9]{10,15}$/', $phone)) {
-            \Log::warning("Gagal mengirim WA ke driver: Nomor telepon tidak valid - {$phone}");
+            Log::warning("Gagal mengirim WA ke driver: Nomor telepon tidak valid - {$phone}");
             return;
         }
-    
+
         try {
             $this->whatsappService->sendMessage($phone, $message);
         } catch (\Exception $e) {
-            \Log::error("Gagal mengirim WhatsApp ke driver: " . $e->getMessage());
+            Log::error("Gagal mengirim WhatsApp ke driver: " . $e->getMessage());
         }
     }
 
     /**
      * Menangani persetujuan permohonan izin keluar driver
-     * 
+     *
      * @param int $id ID request driver
      * @param int $role_id ID role yang menyetujui
      * @return \Illuminate\Http\JsonResponse
@@ -333,18 +333,18 @@ class RequestDriverController extends Controller
     {
         try {
             $requestDriver = RequestDriver::with(['ekspedisi'])->find($id);
-    
+
             if (!$requestDriver) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Data Request Driver tidak ditemukan'
                 ], 404);
             }
-    
+
             $notificationTitle = '';
             $notificationMessage = '';
             $users = collect();
-    
+
             switch ($role_id) {
                 case 4: // Checker/Admin
                     $requestDriver->acc_admin = 2;
@@ -354,7 +354,7 @@ class RequestDriverController extends Controller
                         $query->where('slug', 'head-unit');
                     })->get();
                     break;
-    
+
                 case 5: // Head Unit
                     $requestDriver->acc_head_unit = 2;
                     $notificationTitle = 'Disetujui Head Unit';
@@ -363,7 +363,7 @@ class RequestDriverController extends Controller
                         $query->where('slug', 'security');
                     })->get();
                     break;
-    
+
                 case 6: // Security
                     if ($requestDriver->acc_security_out == 1) {
                         $requestDriver->acc_security_out = 2;
@@ -375,16 +375,16 @@ class RequestDriverController extends Controller
                         $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
                     }
                     break;
-    
+
                 default:
                     return response()->json([
                         'success' => false,
                         'message' => 'Role tidak valid'
                     ], 400);
             }
-    
+
             $requestDriver->save();
-    
+
             $driverMessage = "🔔 *Persetujuan Permohonan Izin Keluar Driver*\n\n" .
                 "Nama: {$requestDriver->nama_driver}\n" .
                 "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n" .
@@ -392,7 +392,7 @@ class RequestDriverController extends Controller
                 "Jam Keluar: {$requestDriver->jam_out}\n" .
                 "Jam Kembali: {$requestDriver->jam_in}\n\n" .
                 "Status: {$notificationTitle} — {$notificationMessage}";
-    
+
             foreach ($users as $user) {
                 Notification::create([
                     'user_id' => $user->id,
@@ -404,16 +404,16 @@ class RequestDriverController extends Controller
                     'status' => 'pending',
                     'is_read' => false
                 ]);
-    
+
                 if ($user->phone) {
                     $this->whatsappService->sendMessage($user->phone, $driverMessage);
                 }
             }
-    
+
             if ($requestDriver->phone) {
                 $this->sendWhatsAppToDriver($requestDriver->phone, $driverMessage);
             }
-    
+
             return response()->json([
                 'success' => true,
                 'message' => 'Permohonan izin berhasil disetujui'
@@ -428,7 +428,7 @@ class RequestDriverController extends Controller
 
     /**
      * Update status persetujuan permohonan izin keluar driver
-     * 
+     *
      * @param int $id ID request driver
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -437,21 +437,21 @@ class RequestDriverController extends Controller
     {
         try {
             $requestDriver = RequestDriver::with('ekspedisi')->find($id);
-    
+
             if (!$requestDriver) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Request Driver tidak ditemukan.'
                 ], 404);
             }
-    
+
             $statuses = $request->input('statuses');
-    
+
             foreach ($statuses as $role => $status) {
                 $notificationTitle = '';
                 $notificationMessage = '';
                 $targetUsers = collect();
-    
+
                 switch ($role) {
                     case 'admin':
                         $requestDriver->acc_admin = $status;
@@ -461,7 +461,7 @@ class RequestDriverController extends Controller
                             $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->where('slug', 'head-unit'))->get();
                         }
                         break;
-    
+
                     case 'head-unit':
                         $requestDriver->acc_head_unit = $status;
                         if ($status == 2) {
@@ -470,7 +470,7 @@ class RequestDriverController extends Controller
                             $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->where('slug', 'security'))->get();
                         }
                         break;
-    
+
                     case 'security-out':
                         $requestDriver->acc_security_out = $status;
                         if ($status == 2) {
@@ -478,7 +478,7 @@ class RequestDriverController extends Controller
                             $notificationMessage = 'telah disetujui oleh Security Out dan menunggu driver kembali';
                         }
                         break;
-    
+
                     case 'security-in':
                         $requestDriver->acc_security_in = $status;
                         if ($status == 2) {
@@ -487,7 +487,7 @@ class RequestDriverController extends Controller
                         }
                         break;
                 }
-    
+
                 // Kirim notifikasi ke user yang berwenang
                 if ($status == 2 && $notificationTitle && $notificationMessage) {
                     foreach ($targetUsers as $user) {
@@ -501,7 +501,7 @@ class RequestDriverController extends Controller
                             'status' => 'pending',
                             'is_read' => false
                         ]);
-    
+
                         // Kirim WhatsApp ke user
                         if ($user->phone) {
                             try {
@@ -516,7 +516,7 @@ class RequestDriverController extends Controller
                         }
                     }
                 }
-    
+
                 // Kirim WhatsApp ke driver
                 if ($status == 2 && $requestDriver->phone) {
                     $driverMessage = "🔔 *Update Status Permohonan Izin Keluar Driver*\n\n" .
@@ -527,19 +527,19 @@ class RequestDriverController extends Controller
                         "Jam Keluar: {$requestDriver->jam_out}\n" .
                         "Jam Kembali: {$requestDriver->jam_in}\n\n" .
                         "Status: {$notificationTitle}";
-    
+
                     $this->sendWhatsAppToDriver($requestDriver->phone, $driverMessage);
                 }
             }
-    
+
             $requestDriver->save();
-    
+
             return response()->json([
                 'success' => true,
                 'message' => 'Status permohonan berhasil diperbarui.'
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error updating status for RequestDriver: ' . $e->getMessage());
+            Log::error('Error updating status for RequestDriver: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan saat memperbarui status: ' . $e->getMessage()
@@ -549,7 +549,7 @@ class RequestDriverController extends Controller
 
     /**
      * Update data permohonan izin keluar driver
-     * 
+     *
      * @param int $id ID request driver
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -604,8 +604,8 @@ class RequestDriverController extends Controller
                 Notification::create([
                     'user_id' => $user->id,
                     'title' => 'Update Data Permohonan Izin Driver',
-                    'message' => 'Data permohonan izin driver ' . $requestDriver->nama_ekspedisi . 
-                               ' dengan nopol ' . $requestDriver->nopol_kendaraan . 
+                    'message' => 'Data permohonan izin driver ' . $requestDriver->nama_ekspedisi .
+                               ' dengan nopol ' . $requestDriver->nopol_kendaraan .
                                ' telah diperbarui',
                     'type' => 'driver',
                     'status' => 'pending',
@@ -630,7 +630,7 @@ class RequestDriverController extends Controller
 
     /**
      * Mengambil data permohonan terbaru dengan filter
-     * 
+     *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -650,12 +650,12 @@ class RequestDriverController extends Controller
                 Log::debug('Original Request Driver Item: ' . json_encode($item->toArray()));
                 $statusBadge = 'warning';
                 $text = 'Menunggu';
-                
+
                 // Cek jika ada yang menolak
                 if($item->acc_admin == 3) {
                     $statusBadge = 'danger';
                     $text = 'Ditolak Admin';
-                } 
+                }
                 elseif($item->acc_head_unit == 3) {
                     $statusBadge = 'danger';
                     $text = 'Ditolak Head Unit';
@@ -663,7 +663,7 @@ class RequestDriverController extends Controller
                 elseif($item->acc_security_out == 3) {
                     $statusBadge = 'danger';
                     $text = 'Ditolak Security Out';
-                } 
+                }
                 elseif($item->acc_security_in == 3) {
                     $statusBadge = 'danger';
                     $text = 'Ditolak Security In';
@@ -758,12 +758,12 @@ class RequestDriverController extends Controller
         $data = $requests->map(function ($item) {
             $statusBadge = 'warning';
             $text = 'Menunggu';
-            
+
             // Cek jika ada yang menolak
             if($item->acc_admin == 3) {
                 $statusBadge = 'danger';
                 $text = 'Ditolak Admin';
-            } 
+            }
             elseif($item->acc_head_unit == 3) {
                 $statusBadge = 'danger';
                 $text = 'Ditolak Head Unit';
@@ -771,7 +771,7 @@ class RequestDriverController extends Controller
             elseif($item->acc_security_out == 3) {
                 $statusBadge = 'danger';
                 $text = 'Ditolak Security Out';
-            } 
+            }
             elseif($item->acc_security_in == 3) {
                 $statusBadge = 'danger';
                 $text = 'Ditolak Security In';
@@ -853,10 +853,10 @@ class RequestDriverController extends Controller
 
         $data = $requests->map(function ($item) {
             $text = 'Menunggu';
-            
+
             if($item->acc_admin == 3) $text = 'Ditolak Admin';
             elseif($item->acc_head_unit == 3) $text = 'Ditolak Head Unit';
-            elseif($item->acc_security_out == 3) $text = 'Ditolak Security Out'; 
+            elseif($item->acc_security_out == 3) $text = 'Ditolak Security Out';
             elseif($item->acc_security_in == 3) $text = 'Ditolak Security In';
             elseif($item->acc_admin == 1) $text = 'Menunggu Admin/Checker';
             elseif($item->acc_admin == 2 && $item->acc_head_unit == 1) $text = 'Menunggu Head Unit';
@@ -917,7 +917,7 @@ class RequestDriverController extends Controller
 
     /**
      * Export data permohonan driver ke PDF per item
-     * 
+     *
      * @param int $id
      * @return \Illuminate\Http\Response
      */
