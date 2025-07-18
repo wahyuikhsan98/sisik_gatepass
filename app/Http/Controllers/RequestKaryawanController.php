@@ -185,8 +185,17 @@ class RequestKaryawanController extends Controller
             $this->sendWhatsAppToKaryawan($phone, $message);
 
             // Notifikasi & WhatsApp ke user role terkait, kecuali nomor karyawan
-            $roles = ['admin', 'lead', 'hr-ga', 'security'];
-            $users = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('slug', $roles))->get();
+            // Ambil user role terkait, khusus lead filter by departemen
+            $roles = ['admin', 'hr-ga', 'security'];
+            $users = \App\Models\User::whereHas('role', function($q) use ($roles) {
+                $q->whereIn('slug', $roles);
+            })
+            ->orWhere(function($q) use ($validated) {
+                $q->whereHas('role', function($r) {
+                    $r->where('slug', 'lead');
+                })->where('departemen_id', $validated['departemen_id']);
+            })
+            ->get();
             foreach ($users as $user) {
                 Notification::create([
                     'user_id' => $user->id,
@@ -240,6 +249,7 @@ class RequestKaryawanController extends Controller
             $notificationTitle = '';
             $notificationMessage = '';
             $users = collect();
+            $skipWhatsapp = false;
 
             switch ($role_id) {
                 case 2: // Lead
@@ -265,10 +275,12 @@ class RequestKaryawanController extends Controller
                         $requestKaryawan->acc_security_out = 2;
                         $notificationTitle = 'Disetujui Security Out';
                         $notificationMessage = 'telah disetujui oleh Security Out dan menunggu karyawan kembali';
+                        $skipWhatsapp = true;
                     } else {
                         $requestKaryawan->acc_security_in = 2;
                         $notificationTitle = 'Disetujui Security In';
                         $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
+                        $skipWhatsapp = true;
                     }
                     break;
 
@@ -289,11 +301,21 @@ class RequestKaryawanController extends Controller
                 "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
                 "Status: {$notificationTitle} — {$notificationMessage}";
 
-            // Notifikasi & WhatsApp ke user role terkait, kecuali karyawan
             $karyawanPhone = preg_replace('/[^0-9]/', '', $requestKaryawan->no_telp);
             if (substr($karyawanPhone, 0, 2) !== '62') {
                 $karyawanPhone = '62' . ltrim($karyawanPhone, '0');
             }
+            // Ambil user role terkait, khusus lead filter by departemen
+            $roles = ['admin', 'hr-ga', 'security'];
+            $users = \App\Models\User::whereHas('role', function($q) use ($roles) {
+                $q->whereIn('slug', $roles);
+            })
+            ->orWhere(function($q) use ($requestKaryawan) {
+                $q->whereHas('role', function($r) {
+                    $r->where('slug', 'lead');
+                })->where('departemen_id', $requestKaryawan->departemen_id);
+            })
+            ->get();
             foreach ($users as $user) {
                 Notification::create([
                     'user_id' => $user->id,
@@ -305,14 +327,13 @@ class RequestKaryawanController extends Controller
                     'status' => 'pending',
                     'is_read' => false
                 ]);
-
-                if ($user->phone && $user->phone !== $karyawanPhone) {
+                if (!$skipWhatsapp && $user->phone && $user->phone !== $karyawanPhone) {
                     $this->whatsappService->sendMessage($user->phone, $karyawanMessage);
                 }
             }
 
             // WhatsApp ke karyawan (hanya satu kali)
-            if ($karyawanPhone) {
+            if (!$skipWhatsapp && $karyawanPhone) {
                 $this->sendWhatsAppToKaryawan($karyawanPhone, $karyawanMessage);
             }
 
@@ -353,6 +374,7 @@ class RequestKaryawanController extends Controller
                 $notificationTitle = '';
                 $notificationMessage = '';
                 $targetUsers = collect(); // default kosong
+                $skipWhatsapp = false;
 
                 // Update status sesuai role
                 switch ($role) {
@@ -361,7 +383,16 @@ class RequestKaryawanController extends Controller
                         if ($status == 2) {
                             $notificationTitle = 'Disetujui Lead';
                             $notificationMessage = 'telah disetujui oleh Lead dan menunggu persetujuan HR GA';
-                            $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('slug', ['hr-ga']))->get();
+                            // Ambil user hr-ga dan lead departemen sama
+                            $targetUsers = \App\Models\User::whereHas('role', function($q) {
+                                $q->where('slug', 'hr-ga');
+                            })
+                            ->orWhere(function($q) use ($requestKaryawan) {
+                                $q->whereHas('role', function($r) {
+                                    $r->where('slug', 'lead');
+                                })->where('departemen_id', $requestKaryawan->departemen_id);
+                            })
+                            ->get();
                         }
                         break;
 
@@ -379,7 +410,7 @@ class RequestKaryawanController extends Controller
                         if ($status == 2) {
                             $notificationTitle = 'Disetujui Security Out';
                             $notificationMessage = 'telah disetujui oleh Security Out dan menunggu karyawan kembali';
-                            // Tidak kirim ke user lain
+                            $skipWhatsapp = true;
                         }
                         break;
 
@@ -388,7 +419,7 @@ class RequestKaryawanController extends Controller
                         if ($status == 2) {
                             $notificationTitle = 'Disetujui Security In';
                             $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
-                            // Tidak kirim ke user lain
+                            $skipWhatsapp = true;
                         }
                         break;
                 }
@@ -412,7 +443,7 @@ class RequestKaryawanController extends Controller
                         ]);
 
                         // Kirim WhatsApp ke user, kecuali karyawan
-                        if ($user->phone && $user->phone !== $karyawanPhone) {
+                        if (!$skipWhatsapp && $user->phone && $user->phone !== $karyawanPhone) {
                             try {
                                 $this->whatsappService->sendMessage($user->phone,
                                     "🔔 *Notifikasi Permohonan Izin Keluar*\n\n" .
@@ -427,7 +458,7 @@ class RequestKaryawanController extends Controller
                 }
 
                 // Kirim WA ke karyawan (hanya satu kali)
-                if ($status == 2 && $karyawanPhone) {
+                if ($status == 2 && !$skipWhatsapp && $karyawanPhone) {
                     $karyawanMessage = "🔔 *Update Status Permohonan Izin Keluar Karyawan*\n\n" .
                         "Nama: {$requestKaryawan->nama}\n" .
                         "Departemen: {$requestKaryawan->departemen->name}\n" .
