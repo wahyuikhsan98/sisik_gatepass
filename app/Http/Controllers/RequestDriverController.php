@@ -195,16 +195,31 @@ class RequestDriverController extends Controller
             // Ambil data ekspedisi
             $ekspedisi = Ekspedisi::find($validated['ekspedisi_id']);
 
-            // Format pesan WhatsApp
-            $message = "🔔 *Permohonan Izin Keluar Driver*\n\n"
-                     . "No Surat: $noSurat\n"
-                     . "Ekspedisi: {$ekspedisi->nama_ekspedisi}\n"
-                     . "Nama Driver: {$validated['nama_driver']}\n"
-                     . "Nopol: {$validated['nopol_kendaraan']}\n"
-                     . "Keperluan: {$validated['keperluan']}\n"
-                     . "Jam Keluar: {$validated['jam_out']}\n"
-                     . "Jam Kembali: {$validated['jam_in']}\n\n"
-                     . "Status: Menunggu Persetujuan";
+            // Format pesan WhatsApp untuk driver
+            $driverMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
+                . "No Surat: $noSurat\n"
+                . "Nama: {$validated['nama_driver']}\n"
+                . "Ekspedisi: {$ekspedisi->nama_ekspedisi}\n"
+                . "Keperluan: {$validated['keperluan']}\n"
+                . "Jam Keluar: {$validated['jam_out']}\n"
+                . "Jam Kembali: {$validated['jam_in']}\n\n"
+                . "Status Terbaru: Menunggu Persetujuan\n"
+                . "Catatan: Permohonan Anda sedang diproses.\n\n"
+                . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
+                . "Terima kasih.";
+
+            // Format pesan WhatsApp untuk atasan
+            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+                . "No Surat: $noSurat\n"
+                . "Nama: {$validated['nama_driver']}\n"
+                . "Ekspedisi: {$ekspedisi->nama_ekspedisi}\n"
+                . "Keperluan: {$validated['keperluan']}\n"
+                . "Jam Keluar: {$validated['jam_out']}\n"
+                . "Jam Kembali: {$validated['jam_in']}\n\n"
+                . "Status Saat Ini: Menunggu Persetujuan\n"
+                . "Diajukan pada: {$today->format('d-m-Y H:i')}\n\n"
+                . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
+                . "Terima kasih atas perhatian dan kerjasamanya.";
 
             // Kirim ke driver
             $phone = preg_replace('/[^0-9]/', '', $validated['no_hp_driver']);
@@ -217,13 +232,13 @@ class RequestDriverController extends Controller
                     throw new \Exception("Perangkat WhatsApp tidak terhubung.");
                 }
 
-                $this->whatsappService->sendMessage($phone, $message);
+                $this->whatsappService->sendMessage($phone, $driverMessage);
                 Log::info("Pesan WhatsApp berhasil dikirim ke driver: $phone");
             } catch (\Exception $e) {
                 Log::error("Gagal kirim WhatsApp ke driver", ['phone' => $phone, 'error' => $e->getMessage()]);
             }
 
-            // Kirim ke admin, checker, head-unit
+            // Kirim ke admin, checker, head-unit, security (atasan)
             $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
             foreach ($adminUsers as $user) {
                 if ($user->no_telp) {
@@ -232,7 +247,7 @@ class RequestDriverController extends Controller
                         $telp = '62' . ltrim($telp, '0');
                     }
                     try {
-                        $this->whatsappService->sendMessage($telp, $message);
+                        $this->whatsappService->sendMessage($telp, $atasanMessage);
                         Log::info("Pesan WhatsApp berhasil dikirim ke admin: {$user->name}");
                     } catch (\Exception $e) {
                         Log::error("Gagal kirim WA ke admin", ['name' => $user->name, 'error' => $e->getMessage()]);
@@ -388,13 +403,29 @@ class RequestDriverController extends Controller
 
             $requestDriver->save();
 
-            $driverMessage = "🔔 *Persetujuan Permohonan Izin Keluar Driver*\n\n" .
-                "Nama: {$requestDriver->nama_driver}\n" .
-                "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n" .
-                "Keperluan: {$requestDriver->keperluan}\n" .
-                "Jam Keluar: {$requestDriver->jam_out}\n" .
-                "Jam Kembali: {$requestDriver->jam_in}\n\n" .
-                "Status: {$notificationTitle} — {$notificationMessage}";
+            $driverMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
+                . "No Surat: {$requestDriver->no_surat}\n"
+                . "Nama: {$requestDriver->nama_driver}\n"
+                . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
+                . "Keperluan: {$requestDriver->keperluan}\n"
+                . "Jam Keluar: {$requestDriver->jam_out}\n"
+                . "Jam Kembali: {$requestDriver->jam_in}\n\n"
+                . "Status Terbaru: {$notificationTitle}\n"
+                . "Catatan: {$notificationMessage}\n\n"
+                . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
+                . "Terima kasih.";
+
+            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+                . "No Surat: {$requestDriver->no_surat}\n"
+                . "Nama: {$requestDriver->nama_driver}\n"
+                . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
+                . "Keperluan: {$requestDriver->keperluan}\n"
+                . "Jam Keluar: {$requestDriver->jam_out}\n"
+                . "Jam Kembali: {$requestDriver->jam_in}\n\n"
+                . "Status Saat Ini: {$notificationTitle}\n"
+                . "Diajukan pada: {$requestDriver->created_at->format('d-m-Y H:i')}\n\n"
+                . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
+                . "Terima kasih atas perhatian dan kerjasamanya.";
 
             foreach ($users as $user) {
                 Notification::create([
@@ -409,7 +440,7 @@ class RequestDriverController extends Controller
                 ]);
 
                 if (!$skipWhatsapp && $user->phone) {
-                    $this->whatsappService->sendMessage($user->phone, $driverMessage);
+                    $this->whatsappService->sendMessage($user->phone, $atasanMessage);
                 }
             }
 
@@ -525,14 +556,31 @@ class RequestDriverController extends Controller
 
                 // Kirim WhatsApp ke driver
                 if ($status == 2 && !$skipWhatsapp && $requestDriver->phone) {
-                    $driverMessage = "🔔 *Update Status Permohonan Izin Keluar Driver*\n\n" .
-                        "Nama: {$requestDriver->nama_driver}\n" .
-                        "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n" .
-                        "Keperluan: {$requestDriver->keperluan}\n" .
-                        "No Polisi: {$requestDriver->nopol_kendaraan}\n" .
-                        "Jam Keluar: {$requestDriver->jam_out}\n" .
-                        "Jam Kembali: {$requestDriver->jam_in}\n\n" .
-                        "Status: {$notificationTitle}";
+                    $driverMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
+                        . "No Surat: {$requestDriver->no_surat}\n"
+                        . "Nama: {$requestDriver->nama_driver}\n"
+                        . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
+                        . "Keperluan: {$requestDriver->keperluan}\n"
+                        . "No Polisi: {$requestDriver->nopol_kendaraan}\n"
+                        . "Jam Keluar: {$requestDriver->jam_out}\n"
+                        . "Jam Kembali: {$requestDriver->jam_in}\n\n"
+                        . "Status Terbaru: {$notificationTitle}\n"
+                        . "Catatan: {$notificationMessage}\n\n"
+                        . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
+                        . "Terima kasih.";
+
+                    $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+                        . "No Surat: {$requestDriver->no_surat}\n"
+                        . "Nama: {$requestDriver->nama_driver}\n"
+                        . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
+                        . "Keperluan: {$requestDriver->keperluan}\n"
+                        . "No Polisi: {$requestDriver->nopol_kendaraan}\n"
+                        . "Jam Keluar: {$requestDriver->jam_out}\n"
+                        . "Jam Kembali: {$requestDriver->jam_in}\n\n"
+                        . "Status Saat Ini: {$notificationTitle}\n"
+                        . "Diajukan pada: {$requestDriver->created_at->format('d-m-Y H:i')}\n\n"
+                        . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
+                        . "Terima kasih atas perhatian dan kerjasamanya.";
 
                     $this->sendWhatsAppToDriver($requestDriver->phone, $driverMessage);
                 }
