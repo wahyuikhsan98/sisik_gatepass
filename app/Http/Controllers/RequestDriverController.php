@@ -344,6 +344,7 @@ class RequestDriverController extends Controller
             $notificationTitle = '';
             $notificationMessage = '';
             $users = collect();
+            $skipWhatsapp = false;
 
             switch ($role_id) {
                 case 4: // Checker/Admin
@@ -369,10 +370,12 @@ class RequestDriverController extends Controller
                         $requestDriver->acc_security_out = 2;
                         $notificationTitle = 'Disetujui Security Out';
                         $notificationMessage = 'telah disetujui oleh Security Out dan menunggu driver kembali';
+                        $skipWhatsapp = true;
                     } else {
                         $requestDriver->acc_security_in = 2;
                         $notificationTitle = 'Disetujui Security In';
                         $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
+                        $skipWhatsapp = true;
                     }
                     break;
 
@@ -405,12 +408,12 @@ class RequestDriverController extends Controller
                     'is_read' => false
                 ]);
 
-                if ($user->phone) {
+                if (!$skipWhatsapp && $user->phone) {
                     $this->whatsappService->sendMessage($user->phone, $driverMessage);
                 }
             }
 
-            if ($requestDriver->phone) {
+            if (!$skipWhatsapp && $requestDriver->phone) {
                 $this->sendWhatsAppToDriver($requestDriver->phone, $driverMessage);
             }
 
@@ -451,6 +454,7 @@ class RequestDriverController extends Controller
                 $notificationTitle = '';
                 $notificationMessage = '';
                 $targetUsers = collect();
+                $skipWhatsapp = false;
 
                 switch ($role) {
                     case 'admin':
@@ -476,6 +480,7 @@ class RequestDriverController extends Controller
                         if ($status == 2) {
                             $notificationTitle = 'Disetujui Security Out';
                             $notificationMessage = 'telah disetujui oleh Security Out dan menunggu driver kembali';
+                            $skipWhatsapp = true;
                         }
                         break;
 
@@ -484,6 +489,7 @@ class RequestDriverController extends Controller
                         if ($status == 2) {
                             $notificationTitle = 'Disetujui Security In';
                             $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
+                            $skipWhatsapp = true;
                         }
                         break;
                 }
@@ -503,7 +509,7 @@ class RequestDriverController extends Controller
                         ]);
 
                         // Kirim WhatsApp ke user
-                        if ($user->phone) {
+                        if (!$skipWhatsapp && $user->phone) {
                             try {
                                 $this->whatsappService->sendMessage($user->phone,
                                     "🔔 *Notifikasi Permohonan Izin Keluar*\n\n" .
@@ -518,7 +524,7 @@ class RequestDriverController extends Controller
                 }
 
                 // Kirim WhatsApp ke driver
-                if ($status == 2 && $requestDriver->phone) {
+                if ($status == 2 && !$skipWhatsapp && $requestDriver->phone) {
                     $driverMessage = "🔔 *Update Status Permohonan Izin Keluar Driver*\n\n" .
                         "Nama: {$requestDriver->nama_driver}\n" .
                         "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n" .
