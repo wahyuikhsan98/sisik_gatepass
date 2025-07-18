@@ -179,12 +179,36 @@ class RequestKaryawanController extends Controller
                 $phone = '62' . ltrim($phone, '0');
             }
 
-            $message = "🔔 *Permohonan Izin Keluar Karyawan*\n\nNo Surat: $noSurat\nNama: {$validated['nama']}\nDepartemen: {$departemen->name}\nKeperluan: {$validated['keperluan']}\nJam Keluar: {$validated['jam_out']}\nJam Kembali: {$validated['jam_in']}\n\nStatus: Menunggu Persetujuan";
+            // Format pesan WhatsApp untuk karyawan
+            $karyawanMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
+                . "No Surat: $noSurat\n"
+                . "Nama: {$validated['nama']}\n"
+                . "Departemen: {$departemen->name}\n"
+                . "Keperluan: {$validated['keperluan']}\n"
+                . "Jam Keluar: {$validated['jam_out']}\n"
+                . "Jam Kembali: {$validated['jam_in']}\n\n"
+                . "Status Terbaru: Menunggu Persetujuan\n"
+                . "Catatan: Permohonan Anda sedang diproses.\n\n"
+                . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
+                . "Terima kasih.";
+
+            // Format pesan WhatsApp untuk atasan
+            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+                . "No Surat: $noSurat\n"
+                . "Nama: {$validated['nama']}\n"
+                . "Departemen: {$departemen->name}\n"
+                . "Keperluan: {$validated['keperluan']}\n"
+                . "Jam Keluar: {$validated['jam_out']}\n"
+                . "Jam Kembali: {$validated['jam_in']}\n\n"
+                . "Status Saat Ini: Menunggu Persetujuan\n"
+                . "Diajukan pada: {$today->format('d-m-Y H:i')}\n\n"
+                . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
+                . "Terima kasih atas perhatian dan kerjasamanya.";
 
             // WhatsApp ke karyawan (hanya satu kali)
-            $this->sendWhatsAppToKaryawan($phone, $message);
+            $this->sendWhatsAppToKaryawan($phone, $karyawanMessage);
 
-            // Notifikasi & WhatsApp ke user role terkait, kecuali nomor karyawan
+            // WhatsApp ke user role terkait, kecuali nomor karyawan
             // Ambil user role terkait, khusus lead filter by departemen
             $roles = ['admin', 'hr-ga', 'security'];
             $users = \App\Models\User::whereHas('role', function($q) use ($roles) {
@@ -205,10 +229,9 @@ class RequestKaryawanController extends Controller
                     'status' => 'pending',
                     'is_read' => false
                 ]);
-                // WhatsApp ke user role terkait, kecuali nomor karyawan
                 if ($user->phone && $user->phone !== $phone) {
                     try {
-                        $this->whatsappService->sendMessage($user->phone, $message);
+                        $this->whatsappService->sendMessage($user->phone, $atasanMessage);
                     } catch (\Exception $e) {
                         Log::error("Gagal kirim WhatsApp ke user {$user->name}", ['phone' => $user->phone, 'error' => $e->getMessage()]);
                     }
@@ -293,13 +316,29 @@ class RequestKaryawanController extends Controller
 
             $requestKaryawan->save();
 
-            $karyawanMessage = "🔔 *Persetujuan Permohonan Izin Keluar Karyawan*\n\n" .
-                "Nama: {$requestKaryawan->nama}\n" .
-                "Departemen: {$requestKaryawan->departemen->name}\n" .
-                "Keperluan: {$requestKaryawan->keperluan}\n" .
-                "Jam Keluar: {$requestKaryawan->jam_out}\n" .
-                "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
-                "Status: {$notificationTitle} — {$notificationMessage}";
+            $karyawanMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
+                . "No Surat: {$requestKaryawan->no_surat}\n"
+                . "Nama: {$requestKaryawan->nama}\n"
+                . "Departemen: {$requestKaryawan->departemen->name}\n"
+                . "Keperluan: {$requestKaryawan->keperluan}\n"
+                . "Jam Keluar: {$requestKaryawan->jam_out}\n"
+                . "Jam Kembali: {$requestKaryawan->jam_in}\n\n"
+                . "Status Terbaru: {$notificationTitle}\n"
+                . "Catatan: {$notificationMessage}\n\n"
+                . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
+                . "Terima kasih.";
+
+            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+                . "No Surat: {$requestKaryawan->no_surat}\n"
+                . "Nama: {$requestKaryawan->nama}\n"
+                . "Departemen: {$requestKaryawan->departemen->name}\n"
+                . "Keperluan: {$requestKaryawan->keperluan}\n"
+                . "Jam Keluar: {$requestKaryawan->jam_out}\n"
+                . "Jam Kembali: {$requestKaryawan->jam_in}\n\n"
+                . "Status Saat Ini: {$notificationTitle}\n"
+                . "Diajukan pada: {$requestKaryawan->created_at->format('d-m-Y H:i')}\n\n"
+                . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
+                . "Terima kasih atas perhatian dan kerjasamanya.";
 
             $karyawanPhone = preg_replace('/[^0-9]/', '', $requestKaryawan->no_telp);
             if (substr($karyawanPhone, 0, 2) !== '62') {
@@ -328,7 +367,7 @@ class RequestKaryawanController extends Controller
                     'is_read' => false
                 ]);
                 if (!$skipWhatsapp && $user->phone && $user->phone !== $karyawanPhone) {
-                    $this->whatsappService->sendMessage($user->phone, $karyawanMessage);
+                    $this->whatsappService->sendMessage($user->phone, $atasanMessage);
                 }
             }
 
@@ -459,13 +498,17 @@ class RequestKaryawanController extends Controller
 
                 // Kirim WA ke karyawan (hanya satu kali)
                 if ($status == 2 && !$skipWhatsapp && $karyawanPhone) {
-                    $karyawanMessage = "🔔 *Update Status Permohonan Izin Keluar Karyawan*\n\n" .
-                        "Nama: {$requestKaryawan->nama}\n" .
-                        "Departemen: {$requestKaryawan->departemen->name}\n" .
-                        "Keperluan: {$requestKaryawan->keperluan}\n" .
-                        "Jam Keluar: {$requestKaryawan->jam_out}\n" .
-                        "Jam Kembali: {$requestKaryawan->jam_in}\n\n" .
-                        "Status: {$notificationTitle}";
+                    $karyawanMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
+                        . "No Surat: {$requestKaryawan->no_surat}\n"
+                        . "Nama: {$requestKaryawan->nama}\n"
+                        . "Departemen: {$requestKaryawan->departemen->name}\n"
+                        . "Keperluan: {$requestKaryawan->keperluan}\n"
+                        . "Jam Keluar: {$requestKaryawan->jam_out}\n"
+                        . "Jam Kembali: {$requestKaryawan->jam_in}\n\n"
+                        . "Status Terbaru: {$notificationTitle}\n"
+                        . "Catatan: {$notificationMessage}\n\n"
+                        . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
+                        . "Terima kasih.";
 
                     $this->sendWhatsAppToKaryawan($karyawanPhone, $karyawanMessage);
                 }
