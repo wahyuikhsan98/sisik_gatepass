@@ -160,11 +160,11 @@ class RequestKaryawanController extends Controller
 
             $lastSequence = 0;
             if ($last) {
-                preg_match("/SIP\/$code\/(\d{3})\//", $last->no_surat, $match);
+                preg_match("/SIK\/$code\/(\d{3})\//", $last->no_surat, $match);
                 $lastSequence = isset($match[1]) ? (int)$match[1] : 0;
             }
             $next = str_pad($lastSequence + 1, 3, '0', STR_PAD_LEFT);
-            $noSurat = "SIP/$code/$next/$day/$month/$year";
+            $noSurat = "SIK/$code/$next/$day/$month/$year";
 
             if (RequestKaryawan::where('no_surat', $noSurat)->exists()) {
                 throw new \Exception('Nomor surat sudah digunakan, silakan coba kembali.');
