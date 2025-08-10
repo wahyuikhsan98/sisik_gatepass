@@ -80,7 +80,7 @@ class RequestKaryawanSeeder extends Seeder
                 $nomorUrut = str_pad($sequenceCounters[$dateKey], 3, '0', STR_PAD_LEFT);
 
                 // Buat no_surat
-                $noSurat = "SIP/{$departemenCode}/{$nomorUrut}/{$day}/{$month}/{$year}";
+                $noSurat = "SIK/{$departemenCode}/{$nomorUrut}/{$day}/{$month}/{$year}";
 
                 $requestKaryawan = RequestKaryawan::create([
                     'no_surat' => $noSurat,
