@@ -374,7 +374,7 @@ class RequestDriverController extends Controller
                 case 5: // Head Unit
                     $requestDriver->acc_head_unit = 2;
                     $notificationTitle = 'Disetujui Head Unit';
-                    $notificationMessage = 'telah disetujui oleh Head Unit dan menunggu persetujuan Security Out';
+                    $notificationMessage = 'telah disetujui oleh Head Unit, Driver sudah boleh keluar';
                     $users = \App\Models\User::whereHas('role', function($query) {
                         $query->where('slug', 'security');
                     })->get();
@@ -384,7 +384,7 @@ class RequestDriverController extends Controller
                     if ($requestDriver->acc_security_out == 1) {
                         $requestDriver->acc_security_out = 2;
                         $notificationTitle = 'Disetujui Security Out';
-                        $notificationMessage = 'telah disetujui oleh Security Out dan menunggu driver kembali';
+                        $notificationMessage = 'telah disetujui oleh Security Out';
                         $skipWhatsapp = true;
                     } else {
                         $requestDriver->acc_security_in = 2;
@@ -501,7 +501,7 @@ class RequestDriverController extends Controller
                         $requestDriver->acc_head_unit = $status;
                         if ($status == 2) {
                             $notificationTitle = 'Disetujui Head Unit';
-                            $notificationMessage = 'telah disetujui oleh Head Unit dan menunggu persetujuan Security Out';
+                            $notificationMessage = 'telah disetujui oleh Head Unit, Drive sudah boleh keluar';
                             $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->where('slug', 'security'))->get();
                         }
                         break;

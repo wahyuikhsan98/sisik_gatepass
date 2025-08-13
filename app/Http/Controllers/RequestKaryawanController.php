@@ -287,7 +287,7 @@ class RequestKaryawanController extends Controller
                 case 3: // HR GA
                     $requestKaryawan->acc_hr_ga = 2;
                     $notificationTitle = 'Disetujui HR GA';
-                    $notificationMessage = 'telah disetujui oleh HR GA dan menunggu persetujuan Security Out';
+                    $notificationMessage = 'telah disetujui oleh HR GA, Karyawan sudah boleh keluar';
                     $users = \App\Models\User::whereHas('role', function($query) {
                         $query->where('slug', 'security');
                     })->get();
@@ -439,7 +439,7 @@ class RequestKaryawanController extends Controller
                         $requestKaryawan->acc_hr_ga = $status;
                         if ($status == 2) {
                             $notificationTitle = 'Disetujui HR GA';
-                            $notificationMessage = 'telah disetujui oleh HR GA dan menunggu persetujuan Security Out';
+                            $notificationMessage = 'telah disetujui oleh HR GA, Karyawan sudah boleh keluar';
                             $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->whereIn('slug', ['security']))->get();
                         }
                         break;
