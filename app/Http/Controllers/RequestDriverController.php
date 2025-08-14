@@ -239,7 +239,6 @@ class RequestDriverController extends Controller
 
             // Kirim ke admin, checker, head-unit, security (atasan)
             $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
-            dd($adminUsers);
             foreach ($adminUsers as $user) {
                 if ($user->no_telp) {
                     $telp = preg_replace('/[^0-9]/', '', $user->no_telp);
