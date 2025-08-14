@@ -468,132 +468,114 @@ class RequestDriverController extends Controller
     public function updateStatus($id, Request $request)
     {
         try {
-            $requestDriver = RequestDriver::with('ekspedisi')->find($id);
-
+            $role_id = $request->input('role_id'); // Sama seperti accRequest
+            $requestDriver = RequestDriver::with(['ekspedisi'])->find($id);
+    
             if (!$requestDriver) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Request Driver tidak ditemukan.'
+                    'message' => 'Data Request Driver tidak ditemukan'
                 ], 404);
             }
-
-            $statuses = $request->input('statuses');
-
-            foreach ($statuses as $role => $status) {
-                $notificationTitle = '';
-                $notificationMessage = '';
-                $targetUsers = collect();
-                $skipWhatsapp = false;
-
-                switch ($role) {
-                    case 'admin':
-                        $requestDriver->acc_admin = $status;
-                        if ($status == 2) {
-                            $notificationTitle = 'Disetujui Checker/Admin';
-                            $notificationMessage = 'telah disetujui oleh Checker/Admin dan menunggu persetujuan Head Unit';
-                            $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->where('slug', 'head-unit'))->get();
-                        }
-                        break;
-
-                    case 'head-unit':
-                        $requestDriver->acc_head_unit = $status;
-                        if ($status == 2) {
-                            $notificationTitle = 'Disetujui Head Unit';
-                            $notificationMessage = 'telah disetujui oleh Head Unit, Drive sudah boleh keluar';
-                            $targetUsers = \App\Models\User::whereHas('role', fn($q) => $q->where('slug', 'security'))->get();
-                        }
-                        break;
-
-                    case 'security-out':
-                        $requestDriver->acc_security_out = $status;
-                        if ($status == 2) {
-                            $notificationTitle = 'Disetujui Security Out';
-                            $notificationMessage = 'telah disetujui oleh Security Out dan menunggu driver kembali';
-                            $skipWhatsapp = true;
-                        }
-                        break;
-
-                    case 'security-in':
-                        $requestDriver->acc_security_in = $status;
-                        if ($status == 2) {
-                            $notificationTitle = 'Disetujui Security In';
-                            $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
-                            $skipWhatsapp = true;
-                        }
-                        break;
-                }
-
-                // Kirim notifikasi ke user yang berwenang
-                if ($status == 2 && $notificationTitle && $notificationMessage) {
-                    foreach ($targetUsers as $user) {
-                        Notification::create([
-                            'user_id' => $user->id,
-                            'title' => 'Permohonan Izin Keluar ' . $requestDriver->nama_driver . ' ' . $notificationTitle,
-                            'message' => 'Permohonan izin keluar atas nama ' . $requestDriver->nama_driver .
-                                         ' dari ekspedisi ' . $requestDriver->ekspedisi->nama_ekspedisi .
-                                         ' ' . $notificationMessage,
-                            'type' => 'driver',
-                            'status' => 'pending',
-                            'is_read' => false
-                        ]);
-
-                        // Kirim WhatsApp ke user
-                        if (!$skipWhatsapp && $user->phone) {
-                            try {
-                                $this->whatsappService->sendMessage($user->phone,
-                                    "🔔 *Notifikasi Permohonan Izin Keluar*\n\n" .
-                                    "Nama: {$requestDriver->nama_driver}\n" .
-                                    "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n" .
-                                    "Status: {$notificationTitle}\n" .
-                                    "Catatan: {$notificationMessage}"
-                                );
-                            } catch (\Exception $e) {}
-                        }
+    
+            $notificationTitle = '';
+            $notificationMessage = '';
+            $users = collect();
+            $skipWhatsapp = false;
+    
+            switch ($role_id) {
+                case 4: // Checker/Admin
+                    $requestDriver->acc_admin = 2;
+                    $notificationTitle = 'Disetujui Checker/Admin';
+                    $notificationMessage = 'telah disetujui oleh Checker/Admin dan menunggu persetujuan Head Unit';
+                    $users = User::whereHas('role', fn($q) => $q->where('slug', 'head-unit'))->get();
+                    break;
+    
+                case 5: // Head Unit
+                    $requestDriver->acc_head_unit = 2;
+                    $notificationTitle = 'Disetujui Head Unit';
+                    $notificationMessage = 'telah disetujui oleh Head Unit, Driver sudah boleh keluar';
+                    $users = User::whereHas('role', fn($q) => $q->where('slug', 'security'))->get();
+                    break;
+    
+                case 6: // Security
+                    if ($requestDriver->acc_security_out == 1) {
+                        $requestDriver->acc_security_out = 2;
+                        $notificationTitle = 'Disetujui Security Out';
+                        $notificationMessage = 'telah disetujui oleh Security Out';
+                        $skipWhatsapp = true;
+                    } else {
+                        $requestDriver->acc_security_in = 2;
+                        $notificationTitle = 'Disetujui Security In';
+                        $notificationMessage = 'telah disetujui oleh Security In dan permohonan selesai';
+                        $skipWhatsapp = true;
                     }
-                }
-
-                // Kirim WhatsApp ke driver
-                if ($status == 2 && !$skipWhatsapp && $requestDriver->phone) {
-                    $driverMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
-                        . "No Surat: {$requestDriver->no_surat}\n"
-                        . "Nama: {$requestDriver->nama_driver}\n"
-                        . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
-                        . "Keperluan: {$requestDriver->keperluan}\n"
-                        . "No Polisi: {$requestDriver->nopol_kendaraan}\n"
-                        . "Jam Keluar: {$requestDriver->jam_out}\n"
-                        . "Jam Kembali: {$requestDriver->jam_in}\n\n"
-                        . "Status Terbaru: {$notificationTitle}\n"
-                        . "Catatan: {$notificationMessage}\n\n"
-                        . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
-                        . "Terima kasih.";
-
-                    $atasanMessage = "🔔 *Permohonan Izin Driver*\n\n"
-                        . "No Surat: {$requestDriver->no_surat}\n"
-                        . "Nama: {$requestDriver->nama_driver}\n"
-                        . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
-                        . "Keperluan: {$requestDriver->keperluan}\n"
-                        . "No Polisi: {$requestDriver->nopol_kendaraan}\n"
-                        . "Jam Keluar: {$requestDriver->jam_out}\n"
-                        . "Jam Kembali: {$requestDriver->jam_in}\n\n"
-                        . "Status Saat Ini: {$notificationTitle}\n\n"
-                        . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
-                        . "Terima kasih atas perhatian dan kerjasamanya.";
-
-                    $this->sendWhatsAppToDriver($requestDriver->phone, $driverMessage);
+                    break;
+    
+                default:
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Role tidak valid'
+                    ], 400);
+            }
+    
+            $requestDriver->save();
+    
+            // Pesan untuk driver
+            $driverMessage = "🔔 *Status Permohonan Izin Anda*\n\n"
+                . "No Surat: {$requestDriver->no_surat}\n"
+                . "Nama: {$requestDriver->nama_driver}\n"
+                . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
+                . "Keperluan: {$requestDriver->keperluan}\n"
+                . "Jam Keluar: {$requestDriver->jam_out}\n"
+                . "Jam Kembali: {$requestDriver->jam_in}\n\n"
+                . "Status Terbaru: {$notificationTitle}\n"
+                . "Catatan: {$notificationMessage}\n\n"
+                . "Silakan pantau status permohonan Anda secara berkala.\nTerima kasih.";
+    
+            // Pesan untuk atasan
+            $atasanMessage = "🔔 *Permohonan Izin Driver*\n\n"
+                . "No Surat: {$requestDriver->no_surat}\n"
+                . "Nama: {$requestDriver->nama_driver}\n"
+                . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
+                . "Keperluan: {$requestDriver->keperluan}\n"
+                . "Jam Keluar: {$requestDriver->jam_out}\n"
+                . "Jam Kembali: {$requestDriver->jam_in}\n\n"
+                . "Status Saat Ini: {$notificationTitle}\n\n"
+                . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\nTerima kasih.";
+    
+            // Kirim ke atasan
+            foreach ($users as $user) {
+                Notification::create([
+                    'user_id' => $user->id,
+                    'title' => 'Permohonan Izin Keluar ' . $requestDriver->nama_driver . ' ' . $notificationTitle,
+                    'message' => 'Permohonan izin keluar atas nama ' . $requestDriver->nama_driver .
+                        ' dari ekspedisi ' . $requestDriver->ekspedisi->nama_ekspedisi .
+                        ' ' . $notificationMessage,
+                    'type' => 'driver',
+                    'status' => 'pending',
+                    'is_read' => false
+                ]);
+    
+                if (!$skipWhatsapp && $user->phone) {
+                    $this->whatsappService->sendMessage($user->phone, $atasanMessage);
                 }
             }
-
-            $requestDriver->save();
-
+    
+            // Kirim ke driver
+            if (!$skipWhatsapp && $requestDriver->phone) {
+                $this->sendWhatsAppToDriver($requestDriver->phone, $driverMessage);
+            }
+    
             return response()->json([
                 'success' => true,
-                'message' => 'Status permohonan berhasil diperbarui.'
+                'message' => 'Status permohonan berhasil diperbarui'
             ]);
+    
         } catch (\Exception $e) {
-            Log::error('Error updating status for RequestDriver: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat memperbarui status: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }
