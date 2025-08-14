@@ -976,19 +976,34 @@
                     'admin': 4,
                     'head-unit': 5,
                     'security-out': 6,
-                    'security-in': 6 // kalau beda id, ubah di sini
+                    'security-in': 6
                 };
             
+                let requests = [];
+            
                 Object.entries(statuses).forEach(([role, status]) => {
-                    $.post(`/request-driver/${requestId}/update-status`, {
-                        _token: '{{ csrf_token() }}',
-                        role_id: roleMap[role],
-                        status: status
-                    });
+                    requests.push(
+                        $.post(`/request-driver/${requestId}/update-status`, {
+                            _token: '{{ csrf_token() }}',
+                            role_id: roleMap[role],
+                            status: status
+                        })
+                    );
                 });
             
-                alert('Status berhasil diperbarui');
-                location.reload();
+                // Tunggu semua AJAX selesai
+                $.when.apply($, requests)
+                    .done(function() {
+                        alert('Status berhasil diperbarui');
+                        location.reload();
+                    })
+                    .fail(function(xhr) {
+                        let errorMessage = 'Terjadi kesalahan.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = 'Terjadi kesalahan: ' + xhr.responseJSON.message;
+                        }
+                        alert(errorMessage);
+                    });
             });
 
 
