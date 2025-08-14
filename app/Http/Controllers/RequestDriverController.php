@@ -216,8 +216,7 @@ class RequestDriverController extends Controller
                 . "Keperluan: {$validated['keperluan']}\n"
                 . "Jam Keluar: {$validated['jam_out']}\n"
                 . "Jam Kembali: {$validated['jam_in']}\n\n"
-                . "Status Saat Ini: Menunggu Persetujuan\n"
-                . "Diajukan pada: {$today->format('d-m-Y H:i')}\n\n"
+                . "Status Saat Ini: Menunggu Persetujuan\n\n"
                 . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
                 . "Terima kasih atas perhatian dan kerjasamanya.";
 
@@ -422,8 +421,7 @@ class RequestDriverController extends Controller
                 . "Keperluan: {$requestDriver->keperluan}\n"
                 . "Jam Keluar: {$requestDriver->jam_out}\n"
                 . "Jam Kembali: {$requestDriver->jam_in}\n\n"
-                . "Status Saat Ini: {$notificationTitle}\n"
-                . "Diajukan pada: {$requestDriver->created_at->format('d-m-Y H:i')}\n\n"
+                . "Status Saat Ini: {$notificationTitle}\n\n"
                 . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
                 . "Terima kasih atas perhatian dan kerjasamanya.";
 
@@ -577,8 +575,7 @@ class RequestDriverController extends Controller
                         . "No Polisi: {$requestDriver->nopol_kendaraan}\n"
                         . "Jam Keluar: {$requestDriver->jam_out}\n"
                         . "Jam Kembali: {$requestDriver->jam_in}\n\n"
-                        . "Status Saat Ini: {$notificationTitle}\n"
-                        . "Diajukan pada: {$requestDriver->created_at->format('d-m-Y H:i')}\n\n"
+                        . "Status Saat Ini: {$notificationTitle}\n\n"
                         . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
                         . "Terima kasih atas perhatian dan kerjasamanya.";
 
