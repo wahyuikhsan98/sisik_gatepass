@@ -34,7 +34,7 @@ class UserSeeder extends Seeder
             'name' => 'HR GA',
             'email' => 'hrga@gmail.com',
             'password' => Hash::make('password'),
-            'phone' => '62895353076420',
+            'phone' => '083815246158',
             'photo' => 'images/users/hrga.png',
             'is_active' => true,
         ]);
@@ -46,7 +46,7 @@ class UserSeeder extends Seeder
             'name' => 'Leader Production',
             'email' => 'leaderproduction@gmail.com',
             'password' => Hash::make('password'),
-            'phone' => '62895353076420',
+            'phone' => '085161659665',
             'photo' => 'images/users/leaderproduction.png',
             'is_active' => true,
         ]);
@@ -56,7 +56,7 @@ class UserSeeder extends Seeder
             'name' => 'Leader Finance',
             'email' => 'leaderfinance@gmail.com',
             'password' => Hash::make('password'),
-            'phone' => '62895353076420',
+            'phone' => '085161659665',
             'photo' => 'images/users/leaderfinance.png',
             'is_active' => true,
         ]);
@@ -91,7 +91,7 @@ class UserSeeder extends Seeder
                 'name' => 'Lead ' . $name,
                 'email' => 'lead' . strtolower(str_replace([' ', '&'], ['', ''], $name)) . '@gmail.com',
                 'password' => Hash::make('password'),
-                'phone' => '62895353076420',
+                'phone' => '085161659665',
                 'photo' => 'images/users/lead' . strtolower(str_replace([' ', '&'], ['', ''], $name)) . '.png',
                 'is_active' => true,
             ]);
@@ -104,7 +104,7 @@ class UserSeeder extends Seeder
             'name' => 'Checker',
             'email' => 'checker@gmail.com',
             'password' => Hash::make('password'),
-            'phone' => '62895353076420',
+            'phone' => '085161659665',
             'photo' => 'images/users/checker.png',
             'is_active' => true,
         ]);
@@ -116,7 +116,7 @@ class UserSeeder extends Seeder
             'name' => 'Head Unit',
             'email' => 'headunit@gmail.com',
             'password' => Hash::make('password'),
-            'phone' => '62895353076420',
+            'phone' => '083815246158',
             'photo' => 'images/users/headunit.png',
             'is_active' => true,
         ]);
@@ -128,7 +128,7 @@ class UserSeeder extends Seeder
             'name' => 'Security',
             'email' => 'security@gmail.com',
             'password' => Hash::make('password'),
-            'phone' => '62895353076420',
+            'phone' => '088212754186',
             'photo' => 'images/users/security.png',
             'is_active' => true,
         ]);
