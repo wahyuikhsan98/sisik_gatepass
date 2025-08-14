@@ -193,7 +193,7 @@ class RequestKaryawanController extends Controller
                 . "Terima kasih.";
 
             // Format pesan WhatsApp untuk atasan
-            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+            $atasanMessage = "🔔 *Permohonan Izin Karyawan*\n\n"
                 . "No Surat: $noSurat\n"
                 . "Nama: {$validated['nama']}\n"
                 . "Departemen: {$departemen->name}\n"
@@ -327,7 +327,7 @@ class RequestKaryawanController extends Controller
                 . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
                 . "Terima kasih.";
 
-            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+            $atasanMessage = "🔔 *Permohonan Izin Karyawan*\n\n"
                 . "No Surat: {$requestKaryawan->no_surat}\n"
                 . "Nama: {$requestKaryawan->nama}\n"
                 . "Departemen: {$requestKaryawan->departemen->name}\n"
