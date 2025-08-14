@@ -965,39 +965,32 @@
             // Handle save status button click
             $('#saveStatusBtn').click(function() {
                 const requestId = $('#modal-request-id').val();
-                const statuses = $(this).closest('.modal').data('currentStatuses'); // Use currentStatuses
-                
-                // Ensure statuses object is not empty or undefined
+                const statuses = $(this).closest('.modal').data('currentStatuses');
+            
                 if (!statuses || Object.keys(statuses).length === 0) {
                     alert('Tidak ada perubahan status yang dipilih.');
                     return;
                 }
-
-                // Send AJAX request to update statuses
-                $.ajax({
-                    url: `/request-driver/${requestId}/update-status`,
-                    type: 'POST',
-                    data: {
+            
+                const roleMap = {
+                    'admin': 4,
+                    'head-unit': 5,
+                    'security-out': 6,
+                    'security-in': 6 // kalau beda id, ubah di sini
+                };
+            
+                Object.entries(statuses).forEach(([role, status]) => {
+                    $.post(`/request-driver/${requestId}/update-status`, {
                         _token: '{{ csrf_token() }}',
-                        statuses: statuses
-                    },
-                    success: function(response) {
-                        if(response.success) {
-                            alert('Status berhasil diperbarui');
-                            location.reload();
-                        } else {
-                            alert('Terjadi kesalahan: ' + response.message);
-                        }
-                    },
-                    error: function(xhr) {
-                        let errorMessage = 'Terjadi kesalahan.';
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
-                            errorMessage = 'Terjadi kesalahan: ' + xhr.responseJSON.message;
-                        }
-                        alert(errorMessage);
-                    }
+                        role_id: roleMap[role],
+                        status: status
+                    });
                 });
+            
+                alert('Status berhasil diperbarui');
+                location.reload();
             });
+
 
             // Handle edit modal
             $('#editModal').on('show.bs.modal', function (event) {
