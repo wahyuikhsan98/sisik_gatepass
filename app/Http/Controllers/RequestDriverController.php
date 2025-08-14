@@ -238,7 +238,7 @@ class RequestDriverController extends Controller
             }
 
             // Kirim ke admin, checker, head-unit, security (atasan)
-            $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
+            $adminUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['checker', 'head-unit', 'security']))->get();
             foreach ($adminUsers as $user) {
                 if ($user->phone) {
                     $telp = preg_replace('/[^0-9]/', '', $user->phone);
@@ -255,7 +255,7 @@ class RequestDriverController extends Controller
             }
 
             // Notifikasi sistem
-            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']))->get();
+            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['checker', 'head-unit', 'security']))->get();
             foreach ($notifUsers as $user) {
                 Notification::create([
                     'user_id' => $user->id,
@@ -648,7 +648,7 @@ class RequestDriverController extends Controller
 
             // Buat notifikasi
             $users = \App\Models\User::whereHas('role', function($query) {
-                $query->whereIn('slug', ['admin', 'checker', 'head-unit', 'security']);
+                $query->whereIn('slug', ['checker', 'head-unit', 'security']);
             })->get();
 
             foreach($users as $user) {
