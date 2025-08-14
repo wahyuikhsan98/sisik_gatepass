@@ -209,7 +209,7 @@ class RequestKaryawanController extends Controller
 
             // WhatsApp ke user role terkait, kecuali nomor karyawan
             // Ambil user role terkait, khusus lead filter by departemen
-            $roles = ['admin', 'hr-ga', 'security'];
+            $roles = ['hr-ga', 'security'];
             $users = \App\Models\User::whereHas('role', function($q) use ($roles) {
                 $q->whereIn('slug', $roles);
             })
@@ -343,7 +343,7 @@ class RequestKaryawanController extends Controller
                 $karyawanPhone = '62' . ltrim($karyawanPhone, '0');
             }
             // Ambil user role terkait, khusus lead filter by departemen
-            $roles = ['admin', 'hr-ga', 'security'];
+            $roles = ['hr-ga', 'security'];
             $users = \App\Models\User::whereHas('role', function($q) use ($roles) {
                 $q->whereIn('slug', $roles);
             })
@@ -572,7 +572,7 @@ class RequestKaryawanController extends Controller
 
             // Buat notifikasi
             $users = \App\Models\User::whereHas('role', function($query) {
-                $query->whereIn('slug', ['admin', 'lead', 'hr-ga', 'security']);
+                $query->whereIn('slug', ['lead', 'hr-ga', 'security']);
             })->get();
 
             foreach($users as $user) {
