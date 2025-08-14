@@ -209,7 +209,7 @@ class RequestDriverController extends Controller
                 . "Terima kasih.";
 
             // Format pesan WhatsApp untuk atasan
-            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+            $atasanMessage = "🔔 *Permohonan Izin Driver*\n\n"
                 . "No Surat: $noSurat\n"
                 . "Nama: {$validated['nama_driver']}\n"
                 . "Ekspedisi: {$ekspedisi->nama_ekspedisi}\n"
@@ -414,7 +414,7 @@ class RequestDriverController extends Controller
                 . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
                 . "Terima kasih.";
 
-            $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+            $atasanMessage = "🔔 *Permohonan Izin Driver*\n\n"
                 . "No Surat: {$requestDriver->no_surat}\n"
                 . "Nama: {$requestDriver->nama_driver}\n"
                 . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
@@ -567,7 +567,7 @@ class RequestDriverController extends Controller
                         . "Silakan pantau status permohonan Anda secara berkala. Jika ada perubahan, Anda akan menerima notifikasi lebih lanjut.\n"
                         . "Terima kasih.";
 
-                    $atasanMessage = "🔔 *Permohonan Izin Bawahan Anda*\n\n"
+                    $atasanMessage = "🔔 *Permohonan Izin Driver*\n\n"
                         . "No Surat: {$requestDriver->no_surat}\n"
                         . "Nama: {$requestDriver->nama_driver}\n"
                         . "Ekspedisi: {$requestDriver->ekspedisi->nama_ekspedisi}\n"
