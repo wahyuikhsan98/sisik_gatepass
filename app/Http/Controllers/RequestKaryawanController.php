@@ -200,8 +200,7 @@ class RequestKaryawanController extends Controller
                 . "Keperluan: {$validated['keperluan']}\n"
                 . "Jam Keluar: {$validated['jam_out']}\n"
                 . "Jam Kembali: {$validated['jam_in']}\n\n"
-                . "Status Saat Ini: Menunggu Persetujuan\n"
-                . "Diajukan pada: {$today->format('d-m-Y H:i')}\n\n"
+                . "Status Saat Ini: Menunggu Persetujuan\n\n"
                 . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
                 . "Terima kasih atas perhatian dan kerjasamanya.";
 
@@ -335,8 +334,7 @@ class RequestKaryawanController extends Controller
                 . "Keperluan: {$requestKaryawan->keperluan}\n"
                 . "Jam Keluar: {$requestKaryawan->jam_out}\n"
                 . "Jam Kembali: {$requestKaryawan->jam_in}\n\n"
-                . "Status Saat Ini: {$notificationTitle}\n"
-                . "Diajukan pada: {$requestKaryawan->created_at->format('d-m-Y H:i')}\n\n"
+                . "Status Saat Ini: {$notificationTitle}\n\n"
                 . "Mohon untuk segera melakukan persetujuan atau penolakan sesuai kebijakan.\n"
                 . "Terima kasih atas perhatian dan kerjasamanya.";
 
