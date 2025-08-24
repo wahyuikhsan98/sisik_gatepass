@@ -12,8 +12,9 @@
                 <i class="icon-menu"></i>
             </button>
         </div>
-        <a href="/" class="logo navbar-brand text-white d-none d-lg-block">
-            <i class="bi bi-door-open"></i> SISIK
+        <a class="navbar-brand" href="/">
+            <img src="{{ asset('assets/img/icon kalbe - Diedit.png') }}" alt="Logo" width="30" height="30" class="d-inline-block align-text-top">
+            SISIK
         </a>
     </div>
     <!-- End Logo Header -->
