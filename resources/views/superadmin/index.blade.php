@@ -46,7 +46,7 @@
 
 		<div class="main-panel">
 			<div class="content">
-				<div class="panel-header bg-primary-gradient">
+				<div class="panel-header panel-header-image">
 					<div class="page-inner py-5">
 						<div class="d-flex align-items-left align-items-md-center flex-column flex-md-row">
 							<div>
@@ -682,7 +682,12 @@
             window.location.href = url;
         }
     </script>
-    <style>
+    <style>        
+        .panel-header-image {
+            background: url('/assets/img/gambar gedung.jpg') no-repeat top center;
+            background-size: cover; /* supaya nutup penuh */
+        }
+
         /* Custom styles for the dropdown menu */
         .btn-group .dropdown-menu {
             min-width: 220px; /* Lebar minimum untuk dropdown */
