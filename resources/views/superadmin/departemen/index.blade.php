@@ -196,7 +196,7 @@
 
     <style>
         .panel-header-image {
-            background: url('/assets/img/bg-header.jpg') no-repeat center center;
+            background: url('/assets/img/gambar gedung.jpeg.jpg') no-repeat center center;
             background-size: cover; /* supaya nutup penuh */
         }
 
