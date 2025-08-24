@@ -18,11 +18,11 @@
                     <div class="page-inner py-5">
                         <div class="d-flex align-items-left align-items-md-center flex-column flex-md-row">
                             <div>
-                                <h2 class="text-white pb-2 fw-bold">Departemen</h2>
-                                <h5 class="text-white op-7 mb-2">Pengelolaan Data Departemen</h5>
+                                <h2 class="text-black pb-2 fw-bold">Departemen</h2>
+                                <h5 class="text-black op-7 mb-2">Pengelolaan Data Departemen</h5>
                             </div>
                             <div class="ml-md-auto py-2 py-md-0">
-                                <button type="button" class="btn btn-light btn-border btn-round" data-toggle="modal" data-target="#modalAdd">
+                                <button type="button" class="btn btn-primary btn-border btn-round" data-toggle="modal" data-target="#modalAdd">
                                     <i class="fas fa-plus"></i> Tambah Departemen
                                 </button>
                             </div>
