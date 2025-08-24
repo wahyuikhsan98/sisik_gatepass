@@ -22,7 +22,7 @@
                                 <h5 class="text-black op-7 mb-2">Pengelolaan Data Departemen</h5>
                             </div>
                             <div class="ml-md-auto py-2 py-md-0">
-                                <button type="button" class="btn btn-primary btn-border btn-round" data-toggle="modal" data-target="#modalAdd">
+                                <button type="button" class="btn btn-white btn-border btn-round" data-toggle="modal" data-target="#modalAdd">
                                     <i class="fas fa-plus"></i> Tambah Departemen
                                 </button>
                             </div>
