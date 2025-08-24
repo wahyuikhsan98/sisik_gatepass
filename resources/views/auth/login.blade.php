@@ -7,6 +7,7 @@
     .panel-bg-auth {
         background: url('/assets/img/gambar gedung bg.jpg') no-repeat center center;
         background-size: cover; /* supaya nutup penuh */
+        background-attachment: fixed;
     }
 </style>
 <body>
