@@ -14,7 +14,7 @@
 
         <div class="main-panel">
             <div class="content">
-                <div class="panel-header bg-primary-gradient">
+                <div class="panel-header panel-header-image">
                     <div class="page-inner py-5">
                         <div class="d-flex align-items-left align-items-md-center flex-column flex-md-row">
                             <div>
@@ -353,6 +353,11 @@
     </div>
 
     <style>
+        .panel-header-image {
+            background: url('/assets/img/gambar gedung.jpg') no-repeat top center;
+            background-size: cover; /* supaya nutup penuh */
+        }
+
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
