@@ -1,7 +1,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm fixed-top">
     <div class="container">
         <a class="navbar-brand" href="/">
-            <img src="{{ asset(assets/img/icon kalbe - Diedit.png) }}" alt="Logo" width="30" height="30" class="d-inline-block align-text-top">
+            <img src="{{ asset('assets/img/icon kalbe - Diedit.png') }}" alt="Logo" width="30" height="30" class="d-inline-block align-text-top">
             SISIK
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
