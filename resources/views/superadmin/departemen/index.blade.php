@@ -199,6 +199,19 @@
             background: url('/assets/img/gambar gedung.jpeg.jpg') no-repeat center center;
             background-size: cover; /* supaya nutup penuh */
         }
+        
+        .panel-header-image::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.4); /* hitam transparan 40% */
+            z-index: 1;
+        }
+        
+        .panel-header-image .page-inner {
+            position: relative;
+            z-index: 2; /* biar konten di atas overlay */
+        }
 
         .table-container {
             position: relative;
