@@ -3,6 +3,11 @@
 <head>
     @include('layout.auth.head')
     <style>
+        .panel-bg-auth {
+            background: url('/assets/img/gambar gedung bg.jpg') no-repeat center center;
+            background-size: cover; /* supaya nutup penuh */
+        }
+
         input[type="time"]::-webkit-datetime-edit-ampm-field {
             display: none;
         }
@@ -122,7 +127,7 @@
     @include('layout.superadmin.alert')
 
     <!-- Form Driver Section -->
-    <section class="min-vh-100 d-flex align-items-center bg-light py-5">
+    <section class="min-vh-100 d-flex align-items-center panel-bg-auth py-5">
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-12 col-md-8 col-lg-6 col-xl-5">
