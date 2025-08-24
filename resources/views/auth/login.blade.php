@@ -3,12 +3,18 @@
 <head>
     @include('layout.auth.head')
 </head>
+<style>
+    .panel-header-image {
+    background: url('/assets/img/gambar gedung bg') no-repeat center center;
+    background-size: cover; /* supaya nutup penuh */
+}
+</style>
 <body>
     <!-- Navbar -->
     @include('layout.auth.navbar')
 
     <!-- Login Section -->
-    <section class="min-vh-100 d-flex align-items-center bg-light py-5">
+    <section class="min-vh-100 d-flex align-items-center panel-bg-auth py-5">
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-12 col-md-8 col-lg-6 col-xl-5">
