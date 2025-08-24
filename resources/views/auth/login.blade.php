@@ -4,7 +4,7 @@
     @include('layout.auth.head')
 </head>
 <style>
-    .panel-header-image {
+    .panel-bg-auth {
     background: url('/assets/img/gambar gedung bg') no-repeat center center;
     background-size: cover; /* supaya nutup penuh */
 }
