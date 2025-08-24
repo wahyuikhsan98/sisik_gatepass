@@ -16,7 +16,7 @@
                         <div class="card-body p-4 p-sm-5">
                             <div class="text-center mb-4">
                                 <h1 class="h3 text-primary mb-2">
-                                    <i class="bi bi-door-open-fill"></i> SISIK
+                                    <img src="{{ asset('assets/img/icon kalbe - Diedit.png') }}" alt="Logo" width="30" height="30" class="bi bi-door-open-fill"> SISIK
                                 </h1>
                                 <p class="text-muted">Masuk ke aplikasi SISIK Sistem Surat Izin Keluar</p>
                             </div>
